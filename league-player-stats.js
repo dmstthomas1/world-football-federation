@@ -50,9 +50,9 @@ function wffRegisterPlayer(state,teamId,p){
  p.playerId=id;
  if(!registry[id]){
   const seed=dnaHash(id);
-  registry[id]={id,name:p.name,position:p.position,originalTeamId:teamId,teamId,age:p.age??null,height:p.height??null,weight:p.weight??null,college:WFF_COLLEGES[Math.floor(seed/13)%WFF_COLLEGES.length],hometown:WFF_HOMETOWNS[seed%WFF_HOMETOWNS.length],rookie:!!p.rookie,nameOrigin:p.nameOrigin||null,yearsPro:p.yearsPro??p.experience??null,firstSeenYear:state.finance?.year??null,contract:p.contract??null};
+  registry[id]={id,name:p.name,position:p.position,jerseyNumber:p.jerseyNumber??null,originalTeamId:teamId,teamId,age:p.age??null,height:p.height??null,weight:p.weight??null,college:WFF_COLLEGES[Math.floor(seed/13)%WFF_COLLEGES.length],hometown:WFF_HOMETOWNS[seed%WFF_HOMETOWNS.length],rookie:!!p.rookie,nameOrigin:p.nameOrigin||null,yearsPro:p.yearsPro??p.experience??null,firstSeenYear:state.finance?.year??null,contract:p.contract??null};
  }else{
-  const r=registry[id];r.teamId=teamId;r.name=p.name;r.nameOrigin=p.nameOrigin||r.nameOrigin;
+  const r=registry[id];r.teamId=teamId;r.name=p.name;if(p.jerseyNumber!=null)r.jerseyNumber=p.jerseyNumber;r.nameOrigin=p.nameOrigin||r.nameOrigin;
   for(const key of ["age","height","weight","yearsPro","contract"])if(p[key]!=null)r[key]=p[key];
  }
  return registry[id];
