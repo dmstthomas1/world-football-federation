@@ -1,66 +1,149 @@
 "use strict";
-// 32-team, eight-division, two-conference NFL-inspired schedule prototype.
+// Deterministic 32-team / 18-week schedule, with exactly 17 games and one bye per club.
 const WFF_SEASON_WEEKS=18;
+function wffRoundRobin(ids){
+ const a=ids.slice(),rounds=[];
+ for(let r=0;r<a.length-1;r++){
+  const pairs=[];for(let i=0;i<a.length/2;i++)pairs.push([a[i],a[a.length-1-i]]);
+  rounds.push(pairs);a.splice(1,0,a.pop());
+ }return rounds;
+}
 function wffSeasonSchedule(year){
- const games=[],byTeam=Array.from({length:32},()=>[]);
- const add=(a,b)=>{const pair=[Math.min(a,b),Math.max(a,b)];if(!games.some(g=>g.a===pair[0]&&g.b===pair[1]))games.push({a:pair[0],b:pair[1]})};
- // Six divisional games (three rivals twice).
- const fixtures=[];
- for(let d=0;d<8;d++)for(let i=0;i<4;i++)for(let j=i+1;j<4;j++){fixtures.push({a:d*4+i,b:d*4+j,div:true});fixtures.push({a:d*4+j,b:d*4+i,div:true})}
- // Cross-division opponents: 4 from rotating same-conference division,
- // 4 from rotating opposite-conference division, 2 from other same-conference
- // division, and 1 cross-conference placement opponent.
- const confs=[teams.filter(t=>t.conference==="West").map(t=>t.id),teams.filter(t=>t.conference==="East").map(t=>t.id)];
- const divs=[0,1,2,3,4,5,6,7];
- const confDivs=confs.map(ids=>divs.filter(d=>ids.includes(d*4)));
- for(let ci=0;ci<2;ci++){
-  const own=confDivs[ci],other=confDivs[1-ci],offset=((year-2026)%3+3)%3,cross=((year-2026)%4+4)%4;
-  for(let k=0;k<4;k++){
-   const d=own[k],same=own[(k+1+offset)%4],opp=other[(k+cross)%4];
-   for(let i=0;i<4;i++)for(let j=0;j<4;j++){
-    const a=d*4+i,b=same*4+j;
-    if(a<b)fixtures.push({a,b,div:false});
-    fixtures.push({a:d*4+i,b:opp*4+j,div:false});
-   }
+ const rand=dnaRandom(dnaHash("wff-schedule-v2|"+year)),weeks=Array.from({length:18},()=>[]);
+ const divisions=Array.from({length:8},(_,d)=>Array.from({length:4},(_,i)=>d*4+i));
+ const divisionRounds=Array.from({length:6},()=>[]);
+ for(const members of divisions){
+  const rr=wffRoundRobin(members);
+  for(let r=0;r<3;r++)for(const [a,b] of rr[r]){
+   divisionRounds[r].push({home:a,away:b,division:true});
+   divisionRounds[r+3].push({home:b,away:a,division:true});
   }
  }
- // Deduplicate and construct 17-game degree-balanced pairing via seeded matching.
- const unique=new Map();for(const g of fixtures){const k=[Math.min(g.a,g.b),Math.max(g.a,g.b)].join(":");if(!unique.has(k))unique.set(k,{a:g.a,b:g.b,div:g.div})}
- const chosen=[...fixtures.filter(g=>g.div)],degree=Array(32).fill(6);
- const pool=[...unique.values()].filter(g=>!g.div);
- const rand=dnaRandom(dnaHash("schedule|"+year));pool.forEach(g=>g.sort=rand());
- pool.sort((a,b)=>a.sort-b.sort);
- for(const g of pool){if(degree[g.a]<17&&degree[g.b]<17){chosen.push(g);degree[g.a]++;degree[g.b]++}}
- // Fill any remaining slots with non-division matchups not already selected.
- const keys=new Set(chosen.map(g=>[Math.min(g.a,g.b),Math.max(g.a,g.b)].join(":")));
- for(let pass=0;pass<40&&degree.some(n=>n<17);pass++){
-  let changed=false;
-  for(let a=0;a<32;a++)if(degree[a]<17){
-   const eligible=teams.map(t=>t.id).filter(b=>b!==a&&Math.floor(a/4)!==Math.floor(b/4)&&degree[b]<17&&!keys.has([Math.min(a,b),Math.max(a,b)].join(":")));
-   if(!eligible.length)continue;eligible.sort((x,y)=>degree[x]-degree[y]||x-y);
-   const b=eligible[0],k=[Math.min(a,b),Math.max(a,b)].join(":");
-   chosen.push({a,b,div:false});keys.add(k);degree[a]++;degree[b]++;changed=true;
+ const divisionPairs=wffRoundRobin(Array.from({length:8},(_,i)=>i));
+ const crossRounds=[];
+ for(let r=0;r<11;r++){
+  const games=[],shift=r>=7?1:0;
+  for(const [da,db] of divisionPairs[r%7])for(let i=0;i<4;i++){
+   const a=da*4+i,b=db*4+(i+shift)%4;
+   games.push({home:(r+i)%2?a:b,away:(r+i)%2?b:a,division:false});
   }
-  if(!changed)break;
+  crossRounds.push(games);
  }
- // Place fixtures in 18 weeks using a rotating bye and no team playing twice in a week.
- const schedule=Array.from({length:18},()=>[]);
- const byeWeek=Array.from({length:32},(_,id)=>5+(id%9));
- const ordered=chosen.map((g,i)=>({...g,sort:rand()+ (g.div?0:.2)})).sort((a,b)=>a.sort-b.sort);
- for(const g of ordered){
-  const candidates=Array.from({length:18},(_,i)=>i).filter(w=>w+1!==byeWeek[g.a]&&w+1!==byeWeek[g.b]&&!schedule[w].some(x=>x.a===g.a||x.b===g.a||x.a===g.b||x.b===g.b));
-  if(!candidates.length)continue;
-  candidates.sort((a,b)=>schedule[a].length-schedule[b].length||a-b);
-  const w=candidates[0];schedule[w].push({week:w+1,home:(g.div?g.a:(rand()<.5?g.a:g.b)),away:null,division:g.div});
-  schedule[w][schedule[w].length-1].away=schedule[w][schedule[w].length-1].home===g.a?g.b:g.a;
+ const rounds=[...divisionRounds,...crossRounds];
+ // Spread the 17 full rounds across 18 weeks. Eight disjoint fixtures are
+ // moved to Week 18, creating one bye each for the 16 affected teams.
+ for(let i=0;i<17;i++)weeks[i]=rounds[i].map(g=>({...g,week:i+1,id:""+(i+1)+"-"+g.home+"-"+g.away}));
+ const moved=[],used=new Set();
+ for(let w=4;w<17&&moved.length<8;w++){
+  const options=weeks[w].filter(g=>!used.has(g.home)&&!used.has(g.away));
+  if(!options.length)continue;
+  const g=options[Math.floor(rand()*options.length)];
+  weeks[w]=weeks[w].filter(x=>x!==g);
+  moved.push({...g,week:18,id:"18-"+g.home+"-"+g.away});
+  used.add(g.home);used.add(g.away);
  }
- return {year,weeks:schedule,byeWeek,scheduled:chosen.length,placed:schedule.reduce((n,w)=>n+w.length,0),degree};
+ if(moved.length!==8)throw Error("Unable to distribute season byes");
+ weeks[17]=moved;
+ const counts=Array(32).fill(0),byes=Array(32).fill(0);
+ for(const week of weeks){
+  const seen=new Set();
+  for(const g of week){if(seen.has(g.home)||seen.has(g.away))throw Error("Schedule conflict");seen.add(g.home);seen.add(g.away);counts[g.home]++;counts[g.away]++}
+  for(let t=0;t<32;t++)if(!seen.has(t))byes[t]++;
+ }
+ if(counts.some(n=>n!==17)||byes.some(n=>n!==1))throw Error("Invalid season game count");
+ return {year,weeks,counts,byes,version:2};
 }
-function wffScheduleInit(state){if(state.leagueSchedule?.year===state.finance.year)return false;state.leagueSchedule=wffSeasonSchedule(state.finance.year);return true}
+function wffScheduleInit(state){
+ if(state.leagueSchedule?.year===state.finance.year&&state.leagueSchedule.version===2)return false;
+ state.leagueSchedule=wffSeasonSchedule(state.finance.year);
+ state.leagueResults={};state.postseason=null;return true;
+}
 function wffNextMatch(state){wffScheduleInit(state);return (state.leagueSchedule.weeks[state.week-1]||[]).find(g=>g.home===state.teamId||g.away===state.teamId)||null}
-function wffScheduleView(state){
- wffScheduleInit(state);const s=state.leagueSchedule;
- const fixtures=s.weeks.map((games,i)=>{const g=games.find(g=>g.home===state.teamId||g.away===state.teamId);
- return '<div class="line"><strong>Week '+(i+1)+'</strong><span>'+(g?(g.home===state.teamId?'vs ':'at ')+esc(teamLabel(teams[g.home===state.teamId?g.away:g.home])):'BYE')+'</span></div>'}).join("");
- return '<section class="panel"><h2>League Schedule • '+s.year+'</h2><p class="muted">17 games / 18 weeks intended. Divisional home-and-away games and rotating non-division matchups. Schedule-generation integrity checks are still being validated.</p>'+fixtures+'</section><section class="panel"><h2>World Bowl Playoff Format</h2><p>Seven teams qualify per conference: four division winners and three wild cards. The No. 1 seed in each conference receives the only first-round bye.</p><p class="muted">Wild Card: 2 vs 7, 3 vs 6, 4 vs 5. Divisional Round: the No. 1 seed faces the lowest remaining seed. Conference Championships follow, then the WFF World Bowl at a neutral venue.</p><p class="notice">Full league standings, game-result synchronization, and automatic playoff execution are not yet implemented.</p></section>';
+function wffLeagueScore(state,game){
+ const r=dnaRandom(dnaHash("league-game|"+state.finance.year+"|"+game.id));
+ const home=10+Math.floor(r()*25),away=10+Math.floor(r()*25);
+ return {homeScore:home===away?home+3:home,awayScore:away};
 }
+function wffLeagueCompleteWeek(state,playerScore){
+ wffScheduleInit(state);const games=state.leagueSchedule.weeks[state.week-1]||[];
+ for(const g of games){
+  if(state.leagueResults[g.id])continue;
+  const own=g.home===state.teamId||g.away===state.teamId;
+  if(own&&!playerScore)throw Error("Player game must finish before advancing week");
+  state.leagueResults[g.id]={...g,...(own?playerScore:wffLeagueScore(state,g))};
+ }
+ state.week++;
+ while(state.week<=18&&!wffNextMatch(state)){const byeGames=state.leagueSchedule.weeks[state.week-1]||[];for(const g of byeGames)if(!state.leagueResults[g.id])state.leagueResults[g.id]={...g,...wffLeagueScore(state,g)};state.week++}
+ if(state.week>18&&!state.postseason)wffBuildPlayoffs(state);
+}
+function wffStandings(state){
+ const rows=teams.map(t=>({id:t.id,w:0,l:0,t:0,pf:0,pa:0,divisionWins:0,divisionLosses:0}));
+ for(const g of Object.values(state.leagueResults||{})){
+  const h=rows[g.home],a=rows[g.away];h.pf+=g.homeScore;h.pa+=g.awayScore;a.pf+=g.awayScore;a.pa+=g.homeScore;
+  if(g.homeScore===g.awayScore){h.t++;a.t++;continue}
+  const win=g.homeScore>g.awayScore?h:a,lose=win===h?a:h;win.w++;lose.l++;
+  if(g.division){win.divisionWins++;lose.divisionLosses++}
+ }
+ return rows;
+}
+function wffRank(a,b){return (b.w+b.t*.5)/(b.w+b.l+b.t||1)-(a.w+a.t*.5)/(a.w+a.l+a.t||1)||b.divisionWins-a.divisionWins||(b.pf-b.pa)-(a.pf-a.pa)||a.id-b.id}
+function wffBuildPlayoffs(state){
+ const rows=wffStandings(state),seeds={};
+ for(const conf of ["West","East"]){
+  const ids=teams.filter(t=>t.conference===conf).map(t=>t.id);
+  const winners=Array.from(new Set(ids.map(id=>Math.floor(id/4)))).map(d=>rows.filter(x=>Math.floor(x.id/4)===d).sort(wffRank)[0]).sort(wffRank);
+  const other=rows.filter(x=>ids.includes(x.id)&&!winners.some(y=>y.id===x.id)).sort(wffRank);
+  seeds[conf]=[...winners,...other.slice(0,3)].map((r,i)=>({id:r.id,seed:i+1}));
+ }
+ state.postseason={phase:"wildcard",seeds,results:[],champion:null};
+}
+function wffPostseasonRound(state){
+ const p=state.postseason;if(!p||p.champion!==null)return false;
+ const results=p.results,round=p.phase;
+ const matchups=[];
+ for(const conf of ["West","East"]){
+  const seeds=p.seeds[conf],prior=results.filter(x=>x.conference===conf&&x.round===({divisional:"wildcard",conference:"divisional"}[round]));
+  const alive=round==="wildcard"?seeds:seeds.filter(s=>prior.some(x=>x.winner===s.id)||(round==="divisional"&&s.seed===1));
+  if(round==="wildcard")for(const [a,b] of [[1,6],[2,5],[3,4]])matchups.push({home:seeds[a].id,away:seeds[b].id,conference:conf,round});
+  if(round==="divisional"){const order=alive.slice().sort((a,b)=>a.seed-b.seed);matchups.push({home:order[0].id,away:order[3].id,conference:conf,round},{home:order[1].id,away:order[2].id,conference:conf,round})}
+  if(round==="conference"){const order=alive.slice().sort((a,b)=>a.seed-b.seed);matchups.push({home:order[0].id,away:order[1].id,conference:conf,round})}
+ }
+ if(round==="worldbowl"){
+  const west=results.find(x=>x.round==="conference"&&x.conference==="West"),east=results.find(x=>x.round==="conference"&&x.conference==="East");
+  matchups.push({home:west.winner,away:east.winner,conference:"World",round});
+ }
+ for(const g of matchups){
+  const r=dnaRandom(dnaHash("wff-playoff|"+state.finance.year+"|"+round+"|"+g.home+"|"+g.away));
+  let hs=14+Math.floor(r()*27),as=14+Math.floor(r()*27);if(hs===as)hs+=3;
+  results.push({...g,homeScore:hs,awayScore:as,winner:hs>as?g.home:g.away});
+ }
+ p.phase=({wildcard:"divisional",divisional:"conference",conference:"worldbowl",worldbowl:"complete"})[round];
+ if(p.phase==="complete")p.champion=results.at(-1).winner;
+ return true;
+}
+function wffScheduleView(state){
+ wffScheduleInit(state);const s=state.leagueSchedule,rows=wffStandings(state);
+ let html='<section class="panel"><h2>'+s.year+' Regular Season Schedule</h2><p>17 games across 18 weeks • Six divisional games • One bye</p>';
+ for(let i=0;i<18;i++){
+  const g=s.weeks[i].find(g=>g.home===state.teamId||g.away===state.teamId);
+  const result=g&&state.leagueResults[g.id],opponent=g?teams[g.home===state.teamId?g.away:g.home]:null;
+  html+='<div class="line"><strong>Week '+(i+1)+'</strong><span>'+(g?(g.home===state.teamId?'vs ':'at ')+esc(teamLabel(opponent)):'BYE')+(result?' • '+result.homeScore+'–'+result.awayScore:'')+'</span></div>';
+ }
+ html+='</section>';
+ for(const conf of ["West","East"]){
+  html+='<section class="panel"><h2>'+conf+' Conference Standings</h2>';
+  for(const d of [...new Set(teams.filter(t=>t.conference===conf).map(t=>t.region))]){
+   html+='<h3>'+esc(d)+'</h3>';
+   for(const row of rows.filter(x=>teams[x.id].region===d).sort(wffRank))html+='<div class="line"><span>'+esc(teamLabel(teams[row.id]))+'</span><strong>'+row.w+'–'+row.l+(row.t?'–'+row.t:'')+'</strong></div>';
+  }html+='</section>';
+ }
+ const p=state.postseason;
+ html+='<section class="panel"><h2>World Bowl Playoffs</h2><p>Seven teams per conference. Only each conference’s No. 1 seed has a Wild Card bye.</p>';
+ if(p){html+='<h3>Round: '+esc(p.phase)+'</h3>';
+  for(const g of p.results)html+='<div class="line"><span>'+esc(g.round)+' • '+esc(teamLabel(teams[g.home]))+' vs '+esc(teamLabel(teams[g.away]))+'</span><strong>'+g.homeScore+'–'+g.awayScore+'</strong></div>';
+  if(p.champion!==null)html+='<h2>World Bowl Champion: '+esc(teamLabel(teams[p.champion]))+'</h2>';
+  else html+='<button class="btn" id="playoff-advance">Simulate Next Playoff Round</button>';
+ }else html+='<p class="muted">Playoff seeds will be determined after Week 18.</p>';
+ return html+'</section>';
+}
+function wffScheduleBind(state,redraw){const b=document.getElementById("playoff-advance");if(b)b.onclick=()=>{if(wffPostseasonRound(state)){save();redraw()}}}
