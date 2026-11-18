@@ -2,11 +2,11 @@
 // Procedural, original stadium sound effects. No external sound files or autoplay.
 const WFF_AUDIO_KEY="wff-audio-v1";
 const wffAudio={
- settings:{enabled:true,crowd:75,effects:85,commentary:false},ctx:null,active:[],lastEvent:"",
+ settings:{enabled:true,crowd:75,effects:85,commentary:false,voice:"",speechRate:1.02,speechVolume:70},ctx:null,active:[],lastEvent:"",
  load(){try{const s=JSON.parse(localStorage.getItem(WFF_AUDIO_KEY));if(s&&typeof s==="object")this.settings={...this.settings,...s}}catch{}},
  save(){try{localStorage.setItem(WFF_AUDIO_KEY,JSON.stringify(this.settings))}catch{}},
  unlock(){if(!this.settings.enabled)return;try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;if(!this.ctx)this.ctx=new C();if(this.ctx.state==="suspended")this.ctx.resume().catch(()=>{})}catch{}},
- stop(){for(const n of this.active){try{n.stop()}catch{}}this.active=[]},
+ stop(){if(typeof wffBroadcast!=="undefined")wffBroadcast.stop();for(const n of this.active){try{n.stop()}catch{}}this.active=[]},
  tone(frequency,duration,volume,type="sine",delay=0){
   if(!this.ctx||this.ctx.state!=="running")return;
   const c=this.ctx,osc=c.createOscillator(),gain=c.createGain(),start=c.currentTime+delay;
@@ -53,15 +53,15 @@ const wffAudio={
  },
  controls(){
   const s=this.settings;
-  return '<section class="panel"><h3>Stadium Audio</h3><div class="toolbar"><label><input type="checkbox" id="audio-enabled" '+(s.enabled?"checked":"")+'> Enable sound</label><button class="btn secondary" id="audio-test">Enable / Test Sound</button></div><div class="toolbar"><label>Crowd volume <input id="audio-crowd" type="range" min="0" max="100" value="'+s.crowd+'"></label><strong id="audio-crowd-value">'+s.crowd+'%</strong><label>Effects volume <input id="audio-effects" type="range" min="0" max="100" value="'+s.effects+'"></label><strong id="audio-effects-value">'+s.effects+'%</strong></div><label><input type="checkbox" id="audio-commentary" '+(s.commentary?"checked":"")+'> Broadcast commentary (voice)</label><p class="muted">Original synthesized crowd reactions and stadium cues. Broadcast voice commentary is not yet implemented; it defaults to Off. Crowd and game sounds still work when commentary is Off. Browser audio begins after you press Enable / Test Sound.</p></section>';
+  return '<section class="panel"><h3>Stadium Audio</h3><div class="toolbar"><label><input type="checkbox" id="audio-enabled" '+(s.enabled?"checked":"")+'> Enable sound</label><button class="btn secondary" id="audio-test">Enable / Test Sound</button></div><div class="toolbar"><label>Crowd volume <input id="audio-crowd" type="range" min="0" max="100" value="'+s.crowd+'"></label><strong id="audio-crowd-value">'+s.crowd+'%</strong><label>Effects volume <input id="audio-effects" type="range" min="0" max="100" value="'+s.effects+'"></label><strong id="audio-effects-value">'+s.effects+'%</strong></div><label><input type="checkbox" id="audio-commentary" '+(s.commentary?"checked":"")+'> Broadcast commentary (voice)</label><p class="muted">Original synthesized crowd reactions and stadium cues. Optional browser voice commentary defaults to Off. Choose and preview a voice before enabling it; naturalness depends on your device. Crowd and effects work independently. Browser audio begins after you press Enable / Test Sound.</p></section>';
  },
  bind(){
   const s=this.settings,by=id=>document.getElementById(id);
   const en=by("audio-enabled");if(!en)return;
   en.onchange=()=>{s.enabled=en.checked;if(!s.enabled)this.stop();else this.unlock();this.save()};
   for(const key of ["crowd","effects"]){const el=by("audio-"+key);el.oninput=()=>{s[key]=Number(el.value);by("audio-"+key+"-value").textContent=s[key]+"%";this.save()}}
-  by("audio-commentary").onchange=e=>{s.commentary=e.target.checked;this.save()};
-  by("audio-test").onclick=()=>{this.unlock();this.play("touchdown",true,.75)};
+  by("audio-commentary").onchange=e=>{s.commentary=e.target.checked;if(!s.commentary&&typeof wffBroadcast!=="undefined")wffBroadcast.stop();this.save()};
+  by("audio-test").onclick=()=>{this.unlock();this.play("touchdown",true,.75)};if(typeof wffBroadcast!=="undefined")wffBroadcast.bind();
  }
 };
 wffAudio.load();
