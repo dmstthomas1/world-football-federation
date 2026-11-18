@@ -58,19 +58,20 @@ function wffPlayConfig(state){
  return c;
 }
 function wffCallPlay(l,side){
- const style=side===0?l.state.offense:"Balanced Multiple",front=side===0?"4-3":l.state.front;
+ const style=l.schemes[side].offense,front=l.schemes[1-side].front;
  const cfg=wffPlayConfig(l.state),off=wffPlayLibrary(style).filter(p=>side!==0||!cfg.disabledOffense[p.id]);
- const distance=l.toGo,down=l.down,late=l.clock.quarter>=4;
+ const distance=l.toGo,down=l.down,late=l.clock.quarter>=4,focus=l.plans[side].offense,defFocus=l.plans[1-side].defense;
  const runBias=/Power Run|Wide Zone/.test(style)?.62:/Air Raid|Run and Shoot|Run and Gun/.test(style)?.30:/Spread|Vertical/.test(style)?.37:.46;
- let wantRun=l.r()<Math.max(.12,Math.min(.82,runBias+(distance<=2?.16:distance>=8?-.16:0)+(down===3?-.15:0)+(late&&l.score[side]>l.score[1-side]?.12:0)));
- const pool=off.filter(p=>p.kind===(wantRun?"run":"pass"));const play=pool[Math.floor(l.r()*pool.length)]||off[0]||wffPlayLibrary(style)[0];
- const base=front||"4-3",defenses=wffDefenseLibrary(base).filter(p=>side!==1||!cfg.disabledDefense[p.id]);
+ const wantRun=l.r()<Math.max(.12,Math.min(.82,runBias+wffPlanRunBias(focus)+(distance<=2?.16:distance>=8?-.16:0)+(down===3?-.15:0)+(late&&l.score[side]>l.score[1-side]?.12:0)));
+ const pool=off.filter(p=>p.kind===(wantRun?"run":"pass"));
+ const play=wffWeightedChoice(pool.length?pool:off,l.r,p=>wffPlanPlayFit(p,focus))||wffPlayLibrary(style)[0];
+ const defenses=wffDefenseLibrary(front).filter(p=>side!==1||!cfg.disabledDefense[p.id]);
  const nickel=play?.personnel==="11",long=down>=3&&distance>=7,short=distance<=2;
- let desired=short&&play?.personnel==="21"?"base":nickel&&long?"dime":nickel?"nickel":"base";
+ const desired=short&&play?.personnel==="21"?"base":nickel&&long?"dime":nickel?"nickel":"base";
  const candidates=defenses.filter(d=>desired==="dime"?/Dime/.test(d.formation):desired==="nickel"?/Nickel|3-3-5|Big Nickel/.test(d.formation):/4-3|3-4|Goal Line/.test(d.formation));
- const available=candidates.length?candidates:defenses.length?defenses:wffDefenseLibrary(base);
- const defense=available[Math.floor(l.r()*available.length)];
- return {play,defense,formation:play?.formation||"Singleback",personnel:play?.personnel||"11",defenseFormation:defense?.formation||base};
+ const available=candidates.length?candidates:defenses.length?defenses:wffDefenseLibrary(front);
+ const defense=wffWeightedChoice(available,l.r,p=>wffPlanDefenseFit(p,defFocus));
+ return {play,defense,formation:play?.formation||"Singleback",personnel:play?.personnel||"11",defenseFormation:defense?.formation||front};
 }
 function wffPlaybookView(state){
  const config=wffPlayConfig(state),off=wffPlayLibrary(state.offense),def=wffDefenseLibrary(state.front);
