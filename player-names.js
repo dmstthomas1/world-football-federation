@@ -44,3 +44,27 @@ function wffMigrateNames(state){
  state.nameRosterVersion=1;
  return true;
 }
+
+ // NFL-inspired jersey ranges. Numbers are unique within each active roster.
+ const WFF_JERSEY_RANGES={
+  QB:[[0,19]],HB:[[0,49]],FB:[[20,49]],WR:[[0,19],[80,89]],TE:[[0,49],[80,89]],
+  OL:[[50,79]],EDGE:[[50,79],[90,99]],DT:[[50,79],[90,99]],
+  LB:[[0,59],[90,99]],CB:[[0,49]],S:[[0,49]],K:[[0,19]],P:[[0,19]]
+ };
+ function wffJerseyGroup(position){return ["LT","LG","C","RG","RT","OL"].includes(position)?"OL":["MLB","OLB","ILB","SAM","WILL"].includes(position)?"LB":["FS","SS","DB"].includes(position)?"S":["DL"].includes(position)?"DT":position}
+ function wffAllowedJersey(position,n){return (WFF_JERSEY_RANGES[wffJerseyGroup(position)]||[[0,99]]).some(([a,b])=>n>=a&&n<=b)}
+ function wffAssignJerseys(roster,teamId){
+  if(!Array.isArray(roster))return false;
+  const used=new Set();let changed=false;
+  // Preserve valid existing jersey numbers where possible.
+  for(const p of roster){const n=Number(p.jerseyNumber);if(p.jerseyNumber!=null&&Number.isInteger(n)&&wffAllowedJersey(p.position,n)&&!used.has(n)){p.jerseyNumber=n;used.add(n)}else p.jerseyNumber=null}
+  for(let i=0;i<roster.length;i++){
+   const p=roster[i];if(p.jerseyNumber!=null)continue;
+   const ranges=WFF_JERSEY_RANGES[wffJerseyGroup(p.position)]||[[0,99]],options=[];
+   for(const [a,b] of ranges)for(let n=a;n<=b;n++)if(!used.has(n))options.push(n);
+   if(!options.length)throw Error("No legal jersey number for "+p.position+" on team "+teamId);
+   const seed=wffNameSeed("jersey|"+teamId+"|"+(p.playerId||i));
+   p.jerseyNumber=options[seed%options.length];used.add(p.jerseyNumber);changed=true;
+  }
+  return changed;
+ }
