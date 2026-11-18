@@ -38,13 +38,43 @@ function wffLeagueUpcoming(state){
  }
  return html+'</section>';
 }
+const WFF_SEASON_AWARDS=[
+ ["leagueMvp","WFF Most Valuable Player","league"],
+ ["eastMvp","East Conference MVP","East"],["westMvp","West Conference MVP","West"],
+ ["eastOroy","East Offensive Rookie of the Year","East"],["westOroy","West Offensive Rookie of the Year","West"],
+ ["eastDroy","East Defensive Rookie of the Year","East"],["westDroy","West Defensive Rookie of the Year","West"],
+ ["opoy","Offensive Player of the Year","league"],["dpoy","Defensive Player of the Year","league"],
+ ["bestQb","Best Quarterback","league"],["bestRb","Best Running Back","league"],
+ ["bestWr","Best Wide Receiver","league"],["bestTe","Best Tight End","league"],
+ ["bestOl","Best Offensive Lineman","league"],["bestEdge","Best Edge Rusher","league"],
+ ["bestDt","Best Defensive Tackle","league"],["bestLb","Best Linebacker","league"],
+ ["bestCb","Best Cornerback","league"],["bestS","Best Safety","league"],
+ ["bestK","Best Kicker","league"],["bestP","Best Punter","league"],
+ ["coach","Coach of the Year","league"]
+];
+const WFF_WEEKLY_AWARDS=[["offense","Offensive Player of the Week"],["defense","Defensive Player of the Week"],["special","Special Teams Player of the Week"]];
+function wffAwardDisplay(a){
+ if(!a||!a.playerName)return '<span class="muted">Awaiting verified individual performances</span>';
+ const team=teams[a.teamId];
+ return '<span>'+esc(a.playerName)+(team?' • '+wffLogo(team,24)+' '+esc(teamLabel(team)):'')+'</span>';
+}
 function wffLeagueAwardsView(state){
- const games=state.games||[];
- let html='<section class="panel"><h2>Conference Players of the Week</h2><p class="muted">One award for each conference after each completed week. Awards require recorded individual player performances and are not assigned from overall ratings or arbitrary draws.</p>';
- const week=Math.min(18,Math.max(1,(state.week||1)-1));
- html+='<h3>Week '+week+'</h3>';
- for(const conf of ["West","East"])html+='<div class="line"><strong>'+conf+' Conference</strong><span class="muted">Pending individual game statistics</span></div>';
- html+='<p class="muted">Awards history and offensive, defensive and special-teams categories will be enabled once the league records individual box scores.</p></section>';
+ const year=state.finance?.year||state.leagueSchedule?.year||2026;
+ const completed=Math.min(18,Math.max(0,(state.week||1)-1));
+ const archive=state.awardHistory||{},seasonAwards=archive[year]?.season||{},weekly=archive[year]?.weekly||{};
+ let html='<section class="panel"><h2>WFF Honors & Awards — '+year+'</h2><p class="muted">Awards are reserved for statistically supported performances. Winners will not be fabricated from overall ratings or arbitrary draws. The simulator still needs complete individual statistics across the league before these awards can be awarded automatically.</p></section>';
+ html+='<section class="panel"><h2>Season Awards</h2>';
+ for(const [id,title,scope] of WFF_SEASON_AWARDS)html+='<div class="line"><span><strong>'+esc(title)+'</strong><small class="muted"> • '+esc(scope==="league"?"League-wide":scope+" Conference")+'</small></span>'+wffAwardDisplay(seasonAwards[id])+'</div>';
+ html+='</section><section class="panel"><h2>Weekly Conference Honors</h2>';
+ if(!completed)html+='<p class="muted">No completed regular-season weeks yet.</p>';
+ for(let week=completed;week>=1;week--){
+  html+='<h3>Week '+week+'</h3>';
+  for(const conf of ["East","West"])for(const [id,title] of WFF_WEEKLY_AWARDS){
+   const award=weekly[week]?.[conf]?.[id];
+   html+='<div class="line"><span>'+conf+' — '+title+'</span>'+wffAwardDisplay(award)+'</div>';
+  }
+ }
+ html+='</section>';
  return html;
 }
 function wffLeagueHubView(state){
