@@ -184,6 +184,7 @@ function wffLiveStep(){
   l.field-=loss;l.down++;l.toGo+=loss;
   if(!l.liveSacks)l.liveSacks=[];
   l.liveSacks.push({teamId:side===0?l.opp.id:l.us.id,name:sack.defender?.name||"Defender",position:sack.defender?.position||"EDGE",yards:loss});
+  wffBroadcast.call("sack",l,side);
   wffLiveEvent((side===0?l.us.city:l.opp.city)+" — "+(sack.quarterback?.name||"Quarterback")+" SACKED by "+(sack.defender?.name||"Defender")+" for a loss of "+loss+" yards!",true);
   if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs after the sack.",true);wffLiveChangePossession(l.field)}
   wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
@@ -193,7 +194,7 @@ function wffLiveStep(){
  if(turnoverPass?.type==="interception"){
   l.playVisual={kind:"interception",gain:0,side,concept:selected?.concept||""};
   wffClockSnap(c,"turnover",{duration:6});const st=l.stats[side];st.plays++;st.pass++;l.playCount++;
-  wffLiveEvent(wffTurnoverRecord(l,side,turnoverPass),true);wffAudio.event("turnover",1-side,l);
+  wffLiveEvent(wffTurnoverRecord(l,side,turnoverPass),true);wffAudio.event("turnover",1-side,l);wffBroadcast.call("interception",l,1-side);
   wffLiveChangePossession();wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
  if(turnoverPass?.type==="nearPick"){
@@ -221,6 +222,9 @@ function wffLiveStep(){
  const label=kneel?"Quarterback kneels to protect the lead.":pass?(throwAway?"Quarterback throws the ball away under pressure.":complete?"Pass complete for "+gain+" yards.":"Pass incomplete; game clock stops."):"Run gains "+gain+" yards.";
  const detailed=" "+name+" — "+label+" ("+wffFieldDown(l)+")";
  wffLiveEvent(detailed);
+ if(throwAway)wffBroadcast.call("throwaway",l,side);
+ else if(pass&&!complete)wffBroadcast.call("incomplete",l,side);
+ else if(!pass&&!kneel&&gain<=0)wffBroadcast.call("runStop",l,1-side);
  l.field+=gain;
  if(l.field>=100){l.score[side]+=7;wffAudio.event("touchdown",side,l);wffBroadcast.call("touchdown",l,side);wffLiveEvent(name+" scores a touchdown! Extra point good.",true);wffSpecialTeamsKick(l,"kickoff",side,1-side)}
  else if(gain>=l.toGo){st.firstDowns++;if(l.speed==="slow"&&l.playCount%3===0)wffBroadcast.call("firstDown",l,side);l.down=1;l.toGo=Math.min(10,100-l.field)}
