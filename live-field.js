@@ -3,7 +3,7 @@
 function wffFieldView(l){
  const side=l.possession,off=side===0?l.us:l.opp,def=side===0?l.opp:l.us;
  const oc=wffColors(off),dc=wffColors(def),yard=Math.max(1,Math.min(99,l.field)),first=Math.min(100,yard+l.toGo);
- const x=y=>50+y*8.8,ballX=x(yard),firstX=x(first);
+ const x=y=>138+y*7.04,ballX=x(yard),firstX=x(first);
  const recent=l.events[0]?.message||"Teams line up for the next snap.";
  const isPass=/pass|intercept|quarterback/i.test(recent),isRun=/run|rush|gains|kneel/i.test(recent);
  const packageInfo=l.formation||{formation:"Singleback",personnel:"12",defense:"4-3"};
@@ -112,7 +112,7 @@ function wffFieldView(l){
  // Red-zone camera geometry: a defense backed up near its goal line must
  // fit between the line of scrimmage and the back of the end zone.
  // The field SVG ends at x=930; reserve marker radius and padding.
- const goalLineX=x(100),endZoneBackX=930;
+ const endZoneBackX=930;
  const yardsToGoal=Math.max(1,100-yard);
  if(yardsToGoal<=12){
   // Near the goal line: linemen crowd the ball, linebackers step up,
