@@ -154,7 +154,8 @@ function wffLiveStep(){
  const protectLead=c.quarter===4&&lead>0&&c.remaining<=180;
  const kneel=protectLead&&(c.remaining<=65||policy==="kneel");
  const offense=l.adjustments.offense,tempo=l.adjustments.tempo;
- const selected=l.calledPlay?.play;
+ const selected=protectLead?null:l.calledPlay?.play;
+ if(protectLead){l.formation={formation:kneel?"Victory":"Singleback",personnel:"12",defense:l.calledPlay?.defenseFormation||"4-3",playType:kneel?"Kneel":"Run"};l.calledPlay=null}
  const pass=!protectLead&&!kneel&&(selected?selected.kind==="pass":l.r()<.56);
  const defenseFocus=l.plans[1-side].defense,mods=wffPlanModifiers(l,side,pass,selected||{});
  const talent=side===0?l.state.roster.reduce((n,p)=>n+p.overall,0)/Math.max(1,l.state.roster.length):rating(l.opp.id,12);
