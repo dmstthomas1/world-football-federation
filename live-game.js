@@ -99,11 +99,11 @@ function wffLiveSchedule(){
  const l=wffLive,delay=l.specialTeams?.phase==="conversion"?(l.speed==="slow"?5200:l.speed==="medium"?3200:1800):l.specialTeams?.phase==="scoreHold"?(l.speed==="slow"?6500:l.speed==="medium"?4200:2200):WFF_LIVE_SPEED[l.speed];
  wffLiveTimer=setTimeout(()=>{wffLiveTimer=null;if(wffLive.specialTeams)wffSpecialTeamsAdvance(wffLive);else wffLiveStep()},delay);
 }
-function wffLiveEvent(message,major=false){
+function wffLiveEvent(message,major=false,eventType=null){
  const l=wffLive;
  if(major){
   let kind=null,title=null;
-  if(/intercepted!/i.test(message)){kind="interception";title="INTERCEPTION!"}
+  if(eventType==="interception"){kind="interception";title="INTERCEPTION!"}
   else if(/touchdown!/i.test(message)){kind="touchdown";title="TOUCHDOWN!"}
   else if(/field goal is GOOD!/i.test(message)){kind="field-good";title="FIELD GOAL GOOD!"}
   else if(/field goal is NO GOOD!/i.test(message)){kind="field-missed";title="FIELD GOAL MISSED!"}
@@ -269,7 +269,7 @@ function wffLiveStep(){
  if(turnoverPass?.type==="interception"){
   l.playVisual={kind:"interception",gain:0,side,concept:selected?.concept||""};
   wffClockSnap(c,"turnover",{duration:6});const st=l.stats[side];st.plays++;st.pass++;l.playCount++;
-  wffLiveEvent(wffTurnoverRecord(l,side,turnoverPass),true);wffAudio.event("turnover",1-side,l);wffBroadcast.call("interception",l,1-side);
+  wffLiveEvent(wffTurnoverRecord(l,side,turnoverPass),true,"interception");wffAudio.event("turnover",1-side,l);wffBroadcast.call("interception",l,1-side);
   wffLiveChangePossession();wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
  if(turnoverPass?.type==="nearPick"){
