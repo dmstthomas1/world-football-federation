@@ -142,16 +142,17 @@ function wffEnsureLeagueBoxScores(state){
  if(!state.leagueBoxScores)state.leagueBoxScores={};
  for(const g of Object.values(state.leagueResults||{})){
   if(!state.leagueBoxScores[g.id])state.leagueBoxScores[g.id]=wffSimBox(state,g);
+  for(const p of state.leagueBoxScores[g.id])for(const field of WFF_STAT_FIELDS)if(p[field]==null)p[field]=0;
   const live=(state.games||[]).find(x=>x.fixtureId===g.id&&Array.isArray(x.liveSacks));
   if(!live)continue;
   const box=state.leagueBoxScores[g.id];
   // Replace modeled sacks with actual named live sacks, once per fixture.
   if(box._liveSacksApplied)continue;
-  for(const p of box)p.sacks=0;
+  for(const p of box){p.sacks=0;p.tacklesForLoss=Math.max(0,(p.tacklesForLoss||0));}
   for(const sack of live.liveSacks){
    let p=box.find(p=>p.teamId===sack.teamId&&p.name===sack.name&&p.position===sack.position);
    if(!p){p={teamId:sack.teamId,name:sack.name,position:sack.position,week:g.week,...Object.fromEntries(WFF_STAT_FIELDS.map(k=>[k,0]))};box.push(p)}
-   p.sacks++;
+   p.sacks++;p.tacklesForLoss++;
   }
   box._liveSacksApplied=true;
  }
@@ -161,7 +162,7 @@ function wffSeasonPlayers(state){
  const map={};
  for(const box of Object.values(state.leagueBoxScores))for(const p of box){
   const key=wffPlayerId(p.teamId,p);
-  if(!map[key])map[key]={...p,playerId:wffPlayerId(p.teamId,p)};else for(const field of WFF_STAT_FIELDS)map[key][field]+=(p[field]||0);
+  if(!map[key])map[key]={...p,playerId:wffPlayerId(p.teamId,p)};else for(const field of WFF_STAT_FIELDS)map[key][field]=(map[key][field]||0)+(p[field]||0);
  }
  return Object.values(map);
 }
