@@ -24,7 +24,18 @@ function wffLiveStart(state,redraw){
  wffLiveRender();wffLiveSchedule();
 }
 function wffLiveSchedule(){wffLiveStop();if(!wffLive||wffLive.paused||wffLive.breakType||wffLive.complete)return;wffLiveTimer=setTimeout(()=>{wffLiveTimer=null;wffLiveStep()},WFF_LIVE_SPEED[wffLive.speed])}
-function wffLiveEvent(message,major=false){const l=wffLive;l.events.unshift({q:l.clock.quarter,time:wffClockTime(l.clock.remaining),message,major});l.events=l.events.slice(0,50)}
+function wffLiveEvent(message,major=false){
+ const l=wffLive;
+ if(major){
+  let kind=null,title=null;
+  if(/intercepted!/i.test(message)){kind="interception";title="INTERCEPTION!"}
+  else if(/touchdown!/i.test(message)){kind="touchdown";title="TOUCHDOWN!"}
+  else if(/makes a .*yard field goal/i.test(message)){kind="field-good";title="FIELD GOAL GOOD!"}
+  else if(/misses a .*yard field goal/i.test(message)){kind="field-missed";title="FIELD GOAL MISSED!"}
+  if(kind)l.fieldHighlight={kind,title,detail:message};
+ }
+ l.events.unshift({q:l.clock.quarter,time:wffClockTime(l.clock.remaining),message,major});l.events=l.events.slice(0,50);
+}
 function wffLiveChangePossession(spot){const l=wffLive;wffFieldSwitch(l,spot)}
 function wffLiveEndPeriod(){
  const l=wffLive,c=l.clock;if(c.remaining>0)return false;
@@ -84,6 +95,7 @@ function wffPassRushOutcome(l,side){
  return {...result,sack:true,defender:winner,quarterback:qb,yards:2+Math.floor(l.r()*8)};
 }
 function wffLiveStep(){
+ if(wffLive)wffLive.fieldHighlight=null;
  const l=wffLive;if(!l||l.paused||l.breakType||l.complete)return;
  l.calledPlay=wffCallPlay(l,l.possession);
  l.formation={formation:l.calledPlay.formation,personnel:l.calledPlay.personnel,defense:l.calledPlay.defenseFormation,playType:l.calledPlay.play?.kind==="pass"?"Pass":"Run"};
