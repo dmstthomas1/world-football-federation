@@ -66,11 +66,36 @@ function wffCallPlay(l,side){
  const pool=off.filter(p=>p.kind===(wantRun?"run":"pass"));
  const play=wffWeightedChoice(pool.length?pool:off,l.r,p=>wffPlanPlayFit(p,focus))||wffPlayLibrary(style)[0];
  const defenses=wffDefenseLibrary(front).filter(p=>side!==1||!cfg.disabledDefense[p.id]);
- const nickel=play?.personnel==="11",long=down>=3&&distance>=7,short=distance<=2;
- const desired=short&&play?.personnel==="21"?"base":nickel&&long?"dime":nickel?"nickel":"base";
- const candidates=defenses.filter(d=>desired==="dime"?/Dime/.test(d.formation):desired==="nickel"?/Nickel|3-3-5|Big Nickel/.test(d.formation):/4-3|3-4|Goal Line/.test(d.formation));
- const available=candidates.length?candidates:defenses.length?defenses:wffDefenseLibrary(front);
- const defense=wffWeightedChoice(available,l.r,p=>wffPlanDefenseFit(p,defFocus));
+ // Defensive personnel selection: match offensive grouping, down/distance and field position.
+ // Goal-line packages are NOT ordinary base defenses.
+ const personnel=play?.personnel||"11",heavy=["21","22","23"].includes(personnel);
+ const spread=personnel==="10",threeWide=personnel==="11",twoTE=personnel==="12";
+ const long=distance>=8,passingDown=down>=3&&distance>=6;
+ const goalSituation=l.field>=97||(l.field>=92&&distance<=3);
+ const goalEligible=goalSituation&&(heavy||twoTE||distance<=2);
+ const base=d=>/^(4-3|3-4)(?: |$)/.test(d.formation);
+ const nickel=d=>/Nickel|3-3-5|4-2-5|Big Nickel/.test(d.formation);
+ const dime=d=>/Dime|3-2-6|4-1-6/.test(d.formation);
+ const goal=d=>/Goal Line/.test(d.formation);
+ const regular=defenses.filter(d=>!goal(d));
+ // Even if users disable an entire defensive family, never substitute Goal Line at midfield.
+ const legal=goalEligible?defenses:regular;
+ const available=legal.length?legal:(goalEligible?defenses:wffDefenseLibrary(front).filter(d=>!goal(d)));
+ const weight=d=>{
+  const form=d.formation;
+  let w=base(d)?1:nickel(d)?1:dime(d)?1:goal(d)?1:.5;
+  if(goal(d))w=goalEligible?(heavy?14:distance<=1?7:2):0;
+  else if(heavy)w=base(d)?12:nickel(d)?(long&&down>=3?2:.35):.05;
+  else if(twoTE)w=base(d)?7:nickel(d)?(passingDown?5:2):dime(d)?.15:.2;
+  else if(spread)w=dime(d)?(passingDown?10:5):nickel(d)?7:base(d)?.35:.2;
+  else if(threeWide)w=nickel(d)?9:dime(d)?(passingDown?5:1):base(d)?(distance<=3?3:1.5):.3;
+  else w=base(d)?6:nickel(d)?5:dime(d)?1:.3;
+  if(down===4&&distance>=7&&dime(d))w*=2;
+  if(distance<=2&&base(d))w*=1.5;
+  if(distance<=2&&dime(d))w*=.3;
+  return Math.max(.01,w)*Math.max(.1,wffPlanDefenseFit(d,defFocus));
+ };
+ const defense=wffWeightedChoice(available,l.r,weight);
  return {play,defense,formation:play?.formation||"Singleback",personnel:play?.personnel||"11",defenseFormation:defense?.formation||front};
 }
 function wffPlaybookView(state){
