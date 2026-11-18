@@ -14,10 +14,13 @@ function wffLiveStart(state,redraw){
  const opp=teams[matchup.home===state.teamId?matchup.away:matchup.home];
  const us=teams[state.teamId];
  const weather=wffWeather(us.id,state.week,state.finance?.year||2026);
- wffLive={state,redraw,opp,us,weather,r,matchup,clock:wffClockCreate(),score:[0,0],possession:0,field:25,down:1,toGo:10,
+ const ownPlan={...wffPlan(state)},cpuPlan=wffOpponentPlan(state,opp.id);
+ const schemes=[wffTeamScheme(state,us.id),wffTeamScheme(state,opp.id)];
+ wffLive={state,redraw,opp,us,weather,r,matchup,plans:[ownPlan,cpuPlan],schemes,clock:wffClockCreate(),score:[0,0],possession:0,field:25,down:1,toGo:10,
  stats:[{plays:0,pass:0,rush:0,yards:0,firstDowns:0,turnovers:0},{plays:0,pass:0,rush:0,yards:0,firstDowns:0,turnovers:0}],
  events:[],formation:null,penaltyLog:[],speed:"medium",paused:false,breakType:null,complete:false,playCount:0,
  adjustments:{offense:"balanced",defense:"balanced",tempo:"normal"},league:(state.leagueSchedule.weeks[state.week-1]||[]).filter(g=>g.id!==matchup.id).slice(0,8).map(g=>({...wffLeagueScore(state,g),home:teamLabel(teams[g.home]),away:teamLabel(teams[g.away])}))};
+ wffLiveEvent("Pregame plans: "+us.city+" — "+WFF_OFF_FOCUS[ownPlan.offense].name+" / "+WFF_DEF_FOCUS[ownPlan.defense].name+"; "+opp.city+" — "+WFF_OFF_FOCUS[cpuPlan.offense].name+" / "+WFF_DEF_FOCUS[cpuPlan.defense].name+".",true);
  wffLiveRender();wffLiveSchedule();
 }
 function wffLiveSchedule(){wffLiveStop();if(!wffLive||wffLive.paused||wffLive.breakType||wffLive.complete)return;wffLiveTimer=setTimeout(()=>{wffLiveTimer=null;wffLiveStep()},WFF_LIVE_SPEED[wffLive.speed])}
@@ -69,11 +72,17 @@ function wffLiveStep(){
  const kneel=policy==="kneel";const offense=l.adjustments.offense,tempo=l.adjustments.tempo;
  const selected=l.calledPlay?.play;
  const pass=!kneel&&(selected?selected.kind==="pass":l.r()<.56);
- const defenseFocus=side===1?l.adjustments.defense:"balanced";const completionChance=.64+(side===0&&offense==="pass"?.025:0)-(defenseFocus==="pass"?.055:0);const complete=pass&&l.r()<completionChance;
- const gain=kneel?-1:pass?(complete?Math.floor(3+l.r()*18):0):Math.floor(-2+l.r()*(defenseFocus==="run"?9:12));
+ const defenseFocus=l.plans[1-side].defense,mods=wffPlanModifiers(l,side,pass,selected||{});
+ const talent=side===0?l.state.roster.reduce((n,p)=>n+p.overall,0)/Math.max(1,l.state.roster.length):rating(l.opp.id,12);
+ const opposingTalent=side===0?rating(l.opp.id,12):l.state.roster.reduce((n,p)=>n+p.overall,0)/Math.max(1,l.state.roster.length);
+ const talentDelta=Math.max(-.06,Math.min(.06,(talent-opposingTalent)*.004));
+ const completionChance=Math.max(.28,Math.min(.84,.64+mods.completion+talentDelta));
+ const complete=pass&&l.r()<completionChance;
+ const rawGain=kneel?-1:pass?(complete?Math.floor(3+l.r()*18+mods.passYards):0):Math.floor(-2+l.r()*12+mods.runYards+talentDelta*12);
+ const gain=Math.max(-8,rawGain);
  const livePenalty=!kneel?wffPenaltyRoll(l,side,pass,"live"):null;
  if(livePenalty){wffClockSnap(c,pass?"pass_incomplete":"run",{duration:5});l.playCount++;wffLiveEvent(wffPenaltyApply(l,livePenalty),true);c.running=false;wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
- const turnoverPass=pass?wffTurnoverPass(l,side,{pressure:defenseFocus==="pass",desperate:urgent}):null;
+ const turnoverPass=pass?wffTurnoverPass(l,side,{pressure:defenseFocus==="blitz",desperate:urgent}):null;
  if(turnoverPass?.type==="interception"){
   wffClockSnap(c,"turnover",{duration:6});const st=l.stats[side];st.plays++;st.pass++;l.playCount++;
   wffLiveEvent(wffTurnoverRecord(l,side,turnoverPass),true);wffAudio.event("turnover",1-side,l);
@@ -122,8 +131,9 @@ function wffLiveRender(){
  const l=wffLive;if(!l)return;const c=l.clock,display=l.speed==="slow"?18:l.speed==="medium"?10:5;
  const stats=l.stats.map((x,i)=>'<div class="stat"><strong>'+esc(i===0?l.us.city:l.opp.city)+'</strong><p>'+x.plays+' plays • '+x.yards+' yards</p><small>'+x.pass+' passes • '+x.rush+' rushes • '+x.firstDowns+' first downs</small></div>').join("");
  const ticker=l.league.slice(0,8).map(x=>'<div class="line"><span>'+esc(x.away)+' '+x.awayScore+'</span><span>'+esc(x.home)+' '+x.homeScore+'</span></div>').join("");
+ const planSummary='<p class="muted">Game plans • '+esc(l.us.city)+': '+esc(WFF_OFF_FOCUS[l.plans[0].offense].name)+' / '+esc(WFF_DEF_FOCUS[l.plans[0].defense].name)+' • '+esc(l.opp.city)+': '+esc(WFF_OFF_FOCUS[l.plans[1].offense].name)+' / '+esc(WFF_DEF_FOCUS[l.plans[1].defense].name)+'</p>';
  const buttons=l.complete?'<button class="btn" id="live-return">Return to Game Day</button>':'<button class="btn secondary" id="live-pause">'+(l.paused?"Resume":"Pause")+'</button>';
- const html='<section class="panel wff-live-controls"><h2>WFF Live Game • CPU vs CPU</h2><p class="muted">'+esc(wffFieldDown(l))+' • Play clock '+c.playClock+'s • Timeouts '+c.timeouts.join(' / ')+'</p><div class="toolbar"><label>Viewing speed <select id="live-speed">'+[["slow","Slow • 6–9 sec"],["medium","Medium • 3–5 sec"],["fast","Fast • 2 sec"]].map(([key,label])=>'<option value="'+key+'" '+(l.speed===key?"selected":"")+'>'+label+'</option>').join("")+'</select></label>'+buttons+'</div><p class="muted">Timing and scores are simulated. Viewing speed never changes the game model.</p></section>'+wffFieldView(l)+wffAudio.controls()+'<section class="panel"><h2>Game Statistics</h2><div class="grid">'+stats+'</div></section>'+wffPenaltySummary(l)+wffTurnoverView(l)+'<section class="panel"><h2>Scores Around the League</h2><p class="muted">Simulated scheduled league results for Week '+l.state.week+'; other games are generated deterministically and recorded after your game finishes.</p>'+ticker+'</section>';
+ const html='<section class="panel wff-live-controls"><h2>WFF Live Game • CPU vs CPU</h2><p class="muted">'+esc(wffFieldDown(l))+' • Play clock '+c.playClock+'s • Timeouts '+c.timeouts.join(' / ')+'</p>'+planSummary+'<div class="toolbar"><label>Viewing speed <select id="live-speed">'+[["slow","Slow • 6–9 sec"],["medium","Medium • 3–5 sec"],["fast","Fast • 2 sec"]].map(([key,label])=>'<option value="'+key+'" '+(l.speed===key?"selected":"")+'>'+label+'</option>').join("")+'</select></label>'+buttons+'</div><p class="muted">Timing and scores are simulated. Viewing speed never changes the game model.</p></section>'+wffFieldView(l)+wffAudio.controls()+'<section class="panel"><h2>Game Statistics</h2><div class="grid">'+stats+'</div></section>'+wffPenaltySummary(l)+wffTurnoverView(l)+'<section class="panel"><h2>Scores Around the League</h2><p class="muted">Simulated scheduled league results for Week '+l.state.week+'; other games are generated deterministically and recorded after your game finishes.</p>'+ticker+'</section>';
  const v=document.getElementById("view");if(!v)return;v.innerHTML=html;wffAudio.bind();
  document.getElementById("live-speed").onchange=e=>{l.speed=e.target.value;wffLiveRender();wffLiveSchedule()};
  const pause=document.getElementById("live-pause");if(pause)pause.onclick=()=>{l.paused=!l.paused;if(l.paused)wffBroadcast.stop();wffLiveRender();wffLiveSchedule()};
