@@ -68,3 +68,37 @@ function wffMigrateNames(state){
   }
   return changed;
  }
+
+const WFF_ACTIVE_POSITION_TARGET=["QB","QB","QB","HB","HB","HB","FB","WR","WR","WR","WR","WR","TE","TE","LT","LT","LG","LG","C","C","RG","RG","RT","RT","EDGE","EDGE","EDGE","EDGE","DT","DT","DT","DT","MLB","SAM","WILL","CB","CB","CB","CB","CB","FS","FS","SS","SS","K","P"];
+function wffEnsureRosterBalance(state){
+ if(!Array.isArray(state?.roster)||state.roster.length!==46)return false;
+ const roster=state.roster,target=WFF_ACTIVE_POSITION_TARGET,used=new Set(),assign=Array(46).fill(null);
+ // Keep as many existing player positions as possible, including their identity and ratings.
+ for(let j=0;j<target.length;j++){
+  const candidates=roster.map((p,i)=>({p,i})).filter(({p,i})=>!used.has(i)&&p.position===target[j]);
+  if(candidates.length){const chosen=candidates.sort((a,b)=>b.p.overall-a.p.overall)[0];used.add(chosen.i);assign[j]=chosen.i}
+ }
+ const similarity=(p,pos)=>{
+  if(p.position===pos)return 100;
+  const g=x=>["SAM","WILL","MLB","OLB","ILB"].includes(x)?"LB":["FS","SS","DB"].includes(x)?"S":["LT","LG","C","RG","RT","OL"].includes(x)?"OL":x;
+  return g(p.position)===g(pos)?40:0;
+ };
+ for(let j=0;j<target.length;j++)if(assign[j]==null){
+  const candidates=roster.map((p,i)=>({p,i})).filter(({i})=>!used.has(i));
+  candidates.sort((a,b)=>similarity(b.p,target[j])-similarity(a.p,target[j])||b.p.overall-a.p.overall);
+  const pick=candidates[0];assign[j]=pick.i;used.add(pick.i);
+ }
+ let changed=false;
+ for(let j=0;j<target.length;j++){
+  const p=roster[assign[j]];
+  if(p.position!==target[j]){p.position=target[j];changed=true}
+ }
+ if(changed){
+  // Recompute position-relevant ratings for converted players while keeping stable identity.
+  for(let j=0;j<target.length;j++){const p=roster[assign[j]];if(p.dnaPosition&&p.dnaPosition!==p.position)p.dnaVersion=0;p.dnaPosition=p.position}
+  wffAssignJerseys(roster,state.teamId);
+  state.depth=wffAutoDepth(state);
+ }
+ state.rosterCompositionVersion=1;
+ return changed;
+}
