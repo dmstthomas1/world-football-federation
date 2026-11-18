@@ -60,7 +60,21 @@ if(group==="HB"){ratings.strength=dnaClamp(60+(weight-185)*.43+(r()-.5)*17);rati
 
 ratings.stamina=dnaClamp(66+r()*30);
 ratings.injuryResistance=dnaClamp(60+r()*36);
+// Age affects physical/technical profile, but does not impose a fixed career arc.
+const age=Number.isFinite(player.age)?player.age:25;
+const agingGroup=["QB","K","P"].includes(group)?"late":(["OL","DT","LB","S"].includes(group)?"middle":"early");
+const declineStart=agingGroup==="late"?33:agingGroup==="middle"?30:28;
+const yearsPast=Math.max(0,age-declineStart);
+const athleticPenalty=Math.min(15,yearsPast*(agingGroup==="early"?1.65:1.2));
+for(const key of ["speed","acceleration","agility"]){ratings[key]=dnaClamp(ratings[key]-athleticPenalty)}
+if(group==="HB"&&age>=30)ratings.breakTackle=dnaClamp(ratings.breakTackle-Math.min(6,(age-29)*.7));
+const experience=Math.max(0,Math.min(9,(age-22)*.7));
+ratings.awareness=dnaClamp(ratings.awareness+experience);
+if(ratings.playRecognition!==undefined)ratings.playRecognition=dnaClamp(ratings.playRecognition+experience);
 const archetype=dnaArchetype(group,ratings,height,weight);
+const careerStage=age<=23?"Developing":age<=27?"Ascending":age<=31?"Veteran":age<=35?"Experienced Veteran":"Late Career";
+const potential=dnaClamp(base+4+(r()-.5)*18+(age<=23?7:age>=32?-5:0),50,99);
+const ageProfile={careerStage,potential,athleticDeclineEstimate:Math.round(athleticPenalty),note:"Illustrative age curve; no seasonal progression or regression is implemented yet."};
 const mentality={};for(const key of DNA_MENTAL)mentality[key]=dnaClamp(40+r()*58);
 const behavior=[];
 if(mentality.resilience<54&&mentality.composure<65)behavior.push("Fragile");
@@ -71,9 +85,9 @@ if(mentality.adaptability>80&&mentality.discipline>68)behavior.push("Adaptive");
 if(mentality.composure>82&&mentality.discipline>75)behavior.push("Steady Hand");
 const tech=DNA_TECHNIQUES[group],technique=tech[Math.floor(r()*tech.length)];
 const skillKeys=p[5],overall=dnaClamp(skillKeys.reduce((sum,k)=>sum+ratings[k],0)/skillKeys.length*.78+ratings.awareness*.12+ratings.stamina*.10,45,99);
-return {...player,overall,height,weight,build:weight>(p[2]+(p[3]-p[2])*.67)?"Heavyset":weight<(p[2]+(p[3]-p[2])*.33)?"Lean":"Athletic",archetype,ratings,mentality,behavior,techniques:[{name:technique,status:ratings[skillKeys[0]]>=80?"Developing":"Potential"}],dnaVersion:2};
+return {...player,overall,height,weight,build:weight>(p[2]+(p[3]-p[2])*.67)?"Heavyset":weight<(p[2]+(p[3]-p[2])*.33)?"Lean":"Athletic",archetype,ageProfile,ratings,mentality,behavior,techniques:[{name:technique,status:ratings[skillKeys[0]]>=80?"Developing":"Potential"}],dnaVersion:3};
 }
 function dnaFormatHeight(inches){return Math.floor(inches/12)+"'"+inches%12+'"'}
 function dnaLabel(key){return key.replace(/([A-Z])/g," $1").replace(/^./,c=>c.toUpperCase())}
-function dnaEnsure(state){let changed=false;for(const [key,ps] of [["roster",false],["practiceSquad",true]]){if(!Array.isArray(state[key]))continue;state[key]=state[key].map((p,i)=>{if(p.dnaVersion===2&&p.ratings&&p.mentality)return p;changed=true;return dnaBuild(p,state.teamId,i,ps)})}return changed}
+function dnaEnsure(state){let changed=false;for(const [key,ps] of [["roster",false],["practiceSquad",true]]){if(!Array.isArray(state[key]))continue;state[key]=state[key].map((p,i)=>{if(p.dnaVersion===3&&p.ratings&&p.mentality)return p;changed=true;return dnaBuild(p,state.teamId,i,ps)})}return changed}
 function dnaPlayerCard(p,i,ps){const rid=(ps?"ps":"a")+i;return '<details class="player"><summary><span><strong>'+esc(p.position)+'</strong> '+esc(p.name)+' <small>'+esc(p.archetype)+' • '+dnaFormatHeight(p.height)+' • '+p.weight+' lb</small></span><strong>'+p.overall+' OVR</strong></summary><div class="player-info"><p>Age '+p.age+' • '+esc(p.build)+' build • '+esc(p.archetype)+'</p><h3>Football & physical ratings</h3><div class="dna-grid">'+Object.entries(p.ratings).map(([k,v])=>'<div><span>'+dnaLabel(k)+'</span><b>'+v+'</b></div>').join("")+'</div><h3>Mentality (scouting estimate)</h3><div class="dna-grid">'+Object.entries(p.mentality).map(([k,v])=>'<div><span>'+dnaLabel(k)+'</span><b>'+v+'</b></div>').join("")+'</div><p><strong>Observed tendencies:</strong> '+(p.behavior.length?p.behavior.map(esc).join(", "):"No prominent tendencies identified")+'</p><p><strong>Technique:</strong> '+p.techniques.map(t=>esc(t.name)+' ('+esc(t.status)+')').join(", ")+'</p><p class="muted">Ratings and tendencies are generated prototypes. Scouting uncertainty, trait unlocks, and on-field effects are not yet implemented.</p></div></details>'}
