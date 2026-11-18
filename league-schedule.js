@@ -8,6 +8,26 @@ function wffRoundRobin(ids){
   rounds.push(pairs);a.splice(1,0,a.pop());
  }return rounds;
 }
+function wffValidateDivisionalSchedule(weeks){
+ const meetings=new Map(),homeMeetings=new Map(),counts=Array(32).fill(0);
+ for(const week of weeks)for(const game of week){
+  const sameDivision=Math.floor(game.home/4)===Math.floor(game.away/4);
+  if(Boolean(game.division)!==sameDivision)throw Error("Incorrect divisional game classification");
+  if(!sameDivision)continue;
+  const pair=[game.home,game.away].sort((a,b)=>a-b).join("-");
+  meetings.set(pair,(meetings.get(pair)||0)+1);
+  const homeKey=pair+"|"+game.home;
+  homeMeetings.set(homeKey,(homeMeetings.get(homeKey)||0)+1);
+  counts[game.home]++;counts[game.away]++;
+ }
+ for(let division=0;division<8;division++)for(let a=0;a<4;a++)for(let b=a+1;b<4;b++){
+  const home=division*4+a,away=division*4+b,pair=home+"-"+away;
+  if(meetings.get(pair)!==2||homeMeetings.get(pair+"|"+home)!==1||homeMeetings.get(pair+"|"+away)!==1)
+   throw Error("Divisional opponents must meet exactly twice, once in each stadium: "+pair);
+ }
+ if(counts.some(count=>count!==6))throw Error("Every team must play exactly six divisional games");
+ return true;
+}
 function wffSeasonSchedule(year){
  const rand=dnaRandom(dnaHash("wff-schedule-v2|"+year)),weeks=Array.from({length:18},()=>[]);
  const divisions=Array.from({length:8},(_,d)=>Array.from({length:4},(_,i)=>d*4+i));
@@ -76,10 +96,11 @@ function wffSeasonSchedule(year){
   for(let t=0;t<32;t++)if(!seen.has(t)){byes[t]++;byeWeeks[t]=w+1;if(w<6||w>11)throw Error("Bye outside Weeks 7–12")}
  }
  if(counts.some(n=>n!==17)||byes.some(n=>n!==1)||weeks[17].length!==16)throw Error("Invalid season game count");
- return {year,weeks,counts,byes,byeWeeks,version:3};
+ wffValidateDivisionalSchedule(weeks);
+ return {year,weeks,counts,byes,byeWeeks,version:4};
 }
 function wffScheduleInit(state){
- if(state.leagueSchedule?.year===state.finance.year&&state.leagueSchedule.version===3)return false;
+ if(state.leagueSchedule?.year===state.finance.year&&state.leagueSchedule.version===4)return false;
  const previous=state.leagueSchedule;
  // Do not erase completed season results when migrating an active franchise.
  if(previous?.year===state.finance.year&&Object.keys(state.leagueResults||{}).length){
