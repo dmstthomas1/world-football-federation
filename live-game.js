@@ -38,7 +38,8 @@ function wffLiveContinue(){
 }
 function wffLiveStep(){
  const l=wffLive;if(!l||l.paused||l.breakType||l.complete)return;
- l.formation=wffPackage(l,l.possession);
+ l.calledPlay=wffCallPlay(l,l.possession);
+ l.formation={formation:l.calledPlay.formation,personnel:l.calledPlay.personnel,defense:l.calledPlay.defenseFormation,playType:l.calledPlay.play?.kind==="pass"?"Pass":"Run"};
  const c=l.clock,side=l.possession,lead=l.score[side]-l.score[1-side];
  const profile=side===0?l.state.staff.hc.tendencies:wffCoachProfile(l.opp.id);
  const opponentTimeouts=c.timeouts[1-side];
@@ -56,8 +57,8 @@ function wffLiveStep(){
  }
  if(l.down===3&&l.toGo<=3&&c.quarter>=3&&Math.abs(lead)<=8)wffAudio.event("critical",1-side,l);
  const kneel=policy==="kneel";const offense=l.adjustments.offense,tempo=l.adjustments.tempo;
- const basePass=side===0?({ "Power Run":.43,"Wide Zone":.48,"Balanced Multiple":.56,"West Coast":.61,"Vertical Passing":.64,"Spread":.65,"Air Raid":.73,"Run and Shoot":.72}[l.state.offense]||.56):.56;
- const pass=!kneel&&l.r()<Math.max(.15,Math.min(.90,basePass+(side===0?(offense==="pass"?.16:offense==="run"?-.16:0):0)+(urgent?.19:0)+(lead>0&&c.quarter===4&&c.remaining<300?-.20:0)));
+ const selected=l.calledPlay?.play;
+ const pass=!kneel&&(selected?selected.kind==="pass":l.r()<.56);
  const defenseFocus=side===1?l.adjustments.defense:"balanced";const completionChance=.64+(side===0&&offense==="pass"?.025:0)-(defenseFocus==="pass"?.055:0);const complete=pass&&l.r()<completionChance;
  const gain=kneel?-1:pass?(complete?Math.floor(3+l.r()*18):0):Math.floor(-2+l.r()*(defenseFocus==="run"?9:12));
  const livePenalty=!kneel?wffPenaltyRoll(l,side,pass,"live"):null;
@@ -82,6 +83,7 @@ function wffLiveStep(){
   wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
  if(l.formation)l.formation.playType=kneel?"Kneel":pass?"Pass":"Run";
+ if(selected)wffLiveEvent((side===0?l.us.city:l.opp.city)+" calls "+selected.formation+" "+selected.variant+" — "+selected.concept+" against "+l.calledPlay.defenseFormation+" "+l.calledPlay.defense.concept+".");
  const kind=kneel?"kneel":pass?(complete?"pass_complete":"pass_incomplete"):"run";
  wffClockSnap(c,kind,{duration:kind==="pass_incomplete"?5:6});
  const st=l.stats[side];st.plays++;l.playCount++;if(pass)st.pass++;else st.rush++;st.yards+=gain;
