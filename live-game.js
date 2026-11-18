@@ -116,7 +116,7 @@ function wffLiveStep(){
  const opposingTalent=side===0?rating(l.opp.id,12):l.state.roster.reduce((n,p)=>n+p.overall,0)/Math.max(1,l.state.roster.length);
  const talentDelta=Math.max(-.06,Math.min(.06,(talent-opposingTalent)*.004));
  const rushOutcome=pass?wffPassRushOutcome(l,side):null;
- const completionChance=Math.max(.28,Math.min(.84,.64+mods.completion+talentDelta+(rushOutcome?.pickup?.035:0)+(rushOutcome?.quickThrow?.025:0)-(rushOutcome?.blitz&&!rushOutcome.pickup&&!rushOutcome.quickThrow?.045:0)));
+ const completionChance=Math.max(.28,Math.min(.84,.64+mods.completion+talentDelta+(rushOutcome?.pickup ? .035 : 0)+(rushOutcome?.quickThrow ? .025 : 0)-(rushOutcome?.blitz&&!rushOutcome.pickup&&!rushOutcome.quickThrow ? .045 : 0)));
  const complete=pass&&l.r()<completionChance;
  const rawGain=kneel?-1:pass?(complete?Math.floor((rushOutcome?.quickThrow?2+l.r()*7:3+l.r()*18)+mods.passYards):0):Math.floor(-2+l.r()*12+mods.runYards+talentDelta*12);
  const gain=Math.max(-8,rawGain);
