@@ -103,7 +103,7 @@ function wffScheduleInit(state){
  if(state.leagueSchedule?.year===state.finance.year&&state.leagueSchedule.version===4)return false;
  const previous=state.leagueSchedule;
  // Do not erase completed season results when migrating an active franchise.
- if(previous?.year===state.finance.year&&Object.keys(state.leagueResults||{}).length){
+ if(previous?.year===state.finance.year&&(state.week>1||Object.keys(state.leagueResults||{}).length)){
   // Keep the in-progress schedule intact; the new rule starts next season.
   return false;
  }
