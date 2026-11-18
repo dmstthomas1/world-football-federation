@@ -14,7 +14,7 @@
 <main id="app"></main><footer class="footer">WFF is an independent fictional football project. All teams and players are fictional. Alpha simulation and ratings are placeholders for testing.</footer>
 </div>
 <script src="team-graphics.js?v=alpha052-graphics2"></script>
-<script src="player-names.js?v=alpha0637-jerseys1"></script>
+<script src="player-names.js?v=alpha0638-depth1"></script>
 <script src="player-dna.js?v=alpha02-individual-aging4-kicker-v5"></script>
 <script src="franchise-management.js?v=alpha035-training"></script>
 <script src="stadium-weather.js?v=alpha034-weather1"></script>
@@ -63,7 +63,7 @@ function esc(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",
 function rng(seed){return()=>{seed=(Math.imul(1664525,seed)+1013904223)>>>0;return seed/4294967296}}
 function rating(id,salt){return 67+Math.floor(rng((id+1)*8371+salt*127)()*25)}
 function makeRoster(id){
- const positions=["QB","QB","HB","HB","HB","FB","WR","WR","WR","WR","WR","WR","TE","TE","TE","LT","LT","LG","LG","C","C","RG","RG","RT","RT","EDGE","EDGE","EDGE","EDGE","DT","DT","DT","DT","MLB","MLB","OLB","OLB","OLB","CB","CB","CB","CB","FS","SS","K","P"];
+ const positions=["QB","QB","QB","HB","HB","HB","FB","WR","WR","WR","WR","WR","TE","TE","LT","LT","LG","LG","C","C","RG","RG","RT","RT","EDGE","EDGE","EDGE","EDGE","DT","DT","DT","DT","MLB","SAM","WILL","CB","CB","CB","CB","CB","FS","FS","SS","SS","K","P"];
  const r=rng(id*104729+42017);
  const roster=wffApplyRosterNames(positions.map(position=>({position,overall:65+Math.floor(r()*28),age:21+Math.floor(r()*13)})),id,false);wffAssignJerseys(roster,id);return roster;
 }
@@ -71,7 +71,7 @@ function makePracticeSquad(id){
  const positions=["QB","HB","WR","OL","DL","DB"],r=rng(id*104729+92017);
  const roster=wffApplyRosterNames(positions.map((position,i)=>({position,overall:58+((id*7+i*11)%15),age:21+Math.floor(r()*10),status:"Practice squad"})),id,true);wffAssignJerseys(roster,id);return roster;
 }
-function ensureRoster(){if(!state)return;let changed=false;if(!Array.isArray(state.roster)||state.roster.length!==46){state.roster=makeRoster(state.teamId);changed=true}if(!Array.isArray(state.practiceSquad)||state.practiceSquad.length!==6){state.practiceSquad=makePracticeSquad(state.teamId);changed=true}if(wffMigrateNames(state))changed=true;if(wffAssignJerseys(state.roster,state.teamId))changed=true;if(wffAssignJerseys(state.practiceSquad,state.teamId))changed=true;if(dnaEnsure(state))changed=true;if(wffInit(state))changed=true;if(wffEnsureHealth(state))changed=true;if(wffBusinessInit(state))changed=true;if(wffEnsureCoachTendencies(state))changed=true;if(wffStaffMarketInit(state))changed=true;if(wffScheduleInit(state))changed=true;if(!state.playerRegistry){wffEnsurePlayerRegistry(state);changed=true}else wffEnsurePlayerRegistry(state);if(state.week>18&&!state.playerSeasonHistory?.[state.finance.year]){if(wffArchivePlayerSeason(state,state.finance.year))changed=true}if(changed)save()}
+function ensureRoster(){if(!state)return;let changed=false;if(!Array.isArray(state.roster)||state.roster.length!==46){state.roster=makeRoster(state.teamId);changed=true}if(!Array.isArray(state.practiceSquad)||state.practiceSquad.length!==6){state.practiceSquad=makePracticeSquad(state.teamId);changed=true}if(wffMigrateNames(state))changed=true;if(wffEnsureRosterBalance(state))changed=true;if(wffAssignJerseys(state.roster,state.teamId))changed=true;if(wffAssignJerseys(state.practiceSquad,state.teamId))changed=true;if(dnaEnsure(state))changed=true;if(wffInit(state))changed=true;if(wffEnsureHealth(state))changed=true;if(wffBusinessInit(state))changed=true;if(wffEnsureCoachTendencies(state))changed=true;if(wffStaffMarketInit(state))changed=true;if(wffScheduleInit(state))changed=true;if(!state.playerRegistry){wffEnsurePlayerRegistry(state);changed=true}else wffEnsurePlayerRegistry(state);if(state.week>18&&!state.playerSeasonHistory?.[state.finance.year]){if(wffArchivePlayerSeason(state,state.finance.year))changed=true}if(changed)save()}
 function start(id){state={teamId:id,week:1,wins:0,losses:0,practiceSquad:makePracticeSquad(id),offense:"Balanced Multiple",front:"4-3",coverage:"Balanced",pressure:"Balanced",roster:makeRoster(id),games:[]};wffMigrateNames(state);wffAssignJerseys(state.roster,id);wffAssignJerseys(state.practiceSquad,id);dnaEnsure(state);wffInit(state);wffEnsureHealth(state);wffBusinessInit(state);wffEnsureCoachTendencies(state);wffStaffMarketInit(state);wffScheduleInit(state);wffEnsurePlayerRegistry(state);save();tab="overview";render()}
 function reset(){if(confirm("Delete this browser's WFF franchise save and return to team selection?")){localStorage.removeItem(KEY);state=null;render()}}
 function teamLabel(t){return t.city+" "+t.name}
