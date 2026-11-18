@@ -26,7 +26,7 @@ function wffFieldView(l){
  formations.push(rb);offensiveLabels.push("HB");
  // The remaining four positions reflect the actual personnel package.
  let eligible=personnel==="23"?["TE","TE","TE","FB"]:personnel==="22"?["TE","TE","WR","FB"]:personnel==="21"?["WR","WR","TE","FB"]:personnel==="12"?["WR","WR","TE","TE"]:personnel==="10"?["WR","WR","WR","WR"]:["WR","WR","WR","TE"];
- if(/Twin TE/.test(variant)&&personnel==="21")eligible=["WR","WR","TE","TE"];
+ // Personnel counts take precedence over a potentially inconsistent formation nickname.
  let positions=[[-13,-150],[-13,150],[-16,-93],[-16,93]];
  // In a conventional set, tight ends align near the tackle, receivers outside.
  const teSpots=[[-17,-87],[-17,87],[-46,-102]];
