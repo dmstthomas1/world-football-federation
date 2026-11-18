@@ -109,6 +109,31 @@ function wffFieldView(l){
   const spots=dbCount===6?[[68,-151],[68,151],[105,-100],[105,100],[151,-50],[151,50]]:dbCount===5?[[70,-151],[70,151],[104,0],[155,-73],[155,73]]:dbCount===4?[[70,-151],[70,151],[157,-75],[157,75]]:[[70,-151],[70,151],[155,0]];
   defenders.push(spots[i]||[155,(i-2)*40]);defensiveLabels.push(i<2?"CB":i<4?"S":"DB");
  }
+ // Red-zone camera geometry: a defense backed up near its goal line must
+ // fit between the line of scrimmage and the back of the end zone.
+ // The field SVG ends at x=930; reserve marker radius and padding.
+ const goalLineX=x(100),endZoneBackX=930;
+ const yardsToGoal=Math.max(1,100-yard);
+ if(yardsToGoal<=12){
+  // Near the goal line: linemen crowd the ball, linebackers step up,
+  // and safeties stay in the end zone rather than beyond its back boundary.
+  const depthLimit=Math.max(20,endZoneBackX-ballX-12);
+  const goalDepth=depthLimit<100;
+  defenders.forEach((p,i)=>{
+   const layer=i<frontCount?0:i<frontCount+lbCount?1:2;
+   const target=layer===0?Math.min(16,depthLimit*.23):layer===1?Math.min(42,depthLimit*.52):Math.min(73,depthLimit*.82);
+   p[0]=Math.max(10,Math.min(depthLimit,target));
+   if(goalDepth&&layer===2){
+    // Deep defenders stagger slightly, retaining a visible safety shell.
+    p[0]=Math.min(depthLimit,p[0]+((i-frontCount-lbCount)%2)*9);
+   }
+  });
+ }
+ // Backed up at our own goal line, keep QB and backs inside the field.
+ if(yard<=12){
+  const minDepth=62-ballX+9;
+  formations.forEach(p=>{p[0]=Math.max(minDepth,p[0])});
+ }
  const dot=(px,py,color,outline,label,animate)=>{
   const cx=Math.max(62,Math.min(918,px)),cy=Math.max(43,Math.min(377,py));
   return '<g class="'+(animate?'wff-field-motion':'')+'" style="--dx:'+animate+'px"><circle cx="'+cx+'" cy="'+cy+'" r="7.2" fill="'+color+'" stroke="'+outline+'" stroke-width="1.6"/><text x="'+cx+'" y="'+(cy+2.6)+'" fill="#fff" text-anchor="middle" font-family="system-ui" font-size="6.3" font-weight="800">'+label+'</text></g>';
