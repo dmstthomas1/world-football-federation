@@ -74,7 +74,7 @@ function wffLeagueCompleteWeek(state,playerScore){
  }
  wffEnsureLeagueBoxScores(state);state.week++;
  while(state.week<=18&&!wffNextMatch(state)){const byeGames=state.leagueSchedule.weeks[state.week-1]||[];for(const g of byeGames)if(!state.leagueResults[g.id])state.leagueResults[g.id]={...g,...wffLeagueScore(state,g)};state.week++}
- wffEnsureLeagueBoxScores(state);wffComputeAwards(state);if(state.week>18&&!state.postseason)wffBuildPlayoffs(state);
+ wffEnsureLeagueBoxScores(state);if(state.week>18)wffArchivePlayerSeason(state,state.finance.year);wffComputeAwards(state);if(state.week>18&&!state.postseason)wffBuildPlayoffs(state);
 }
 function wffStandings(state){
  const rows=teams.map(t=>({id:t.id,w:0,l:0,t:0,pf:0,pa:0,divisionWins:0,divisionLosses:0}));
