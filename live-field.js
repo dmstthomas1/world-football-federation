@@ -140,34 +140,60 @@ function wffFieldView(l){
  }
  // Choreographed broadcast motion is illustrative; game engine outcomes remain authoritative.
  const message=l.events[0]?.message||"";
+ const call=l.calledPlay?.play||{},concept=String(call.concept||"");
+ const coverage=String(l.calledPlay?.defense?.concept||"");
+ const declaredKind=l.formation?.playType||call.kind||"";
  const snapType=l.specialTeams?(l.specialTeams.type==="punt"?"punt":"kickoff"):
    /SACKED/i.test(message)?"sack":/intercepted/i.test(message)?"interception":
    /field goal/i.test(message)?"fieldgoal":/incomplete|broken up/i.test(message)?"incomplete":
+   declaredKind==="Pass"||declaredKind==="pass"?"pass":declaredKind==="Kneel"?"kneel":
    /pass|throws|completes/i.test(message)?"pass":/kneel/i.test(message)?"kneel":"run";
  const gainMatch=message.match(/(?:gain(?:s|ed)?|for)\\s+(-?\\d+)\\s+yards?/i);
  const gain=gainMatch?Number(gainMatch[1]):0;
  const distance=Math.max(-65,Math.min(180,gain*7.04));
  const animationDuration=Math.max(1.1,Math.min(4.8,(WFF_LIVE_SPEED?.[l.speed]||4000)/1000*.72));
+ const passPlay=["pass","incomplete","interception","sack"].includes(snapType);
+ const runDirection=/Toss|Sweep|Stretch|Outside Zone/.test(concept)?1:/Counter|Power O|Trap/.test(concept)?-1:0;
+ const isBlitz=/Blitz|Pressure|Double A/.test(coverage),isZone=/Zone|Cover 2|Cover 3|Cover 4|Cover 6|Tampa|Quarters/.test(coverage);
+ const route=(role,index)=>{
+  const sign=index%2?-1:1;
+  if(/Four Verticals/.test(concept))return [125,sign*9];
+  if(/Slants|Quick Outs/.test(concept))return [50,/Outs/.test(concept)?sign*42:-sign*42];
+  if(/Mesh|Shallow Cross/.test(concept))return [57,-sign*90];
+  if(/Screens/.test(concept))return [-22,sign*40];
+  if(/Curl Flat|Stick|Spacing/.test(concept))return [58,sign*18];
+  if(/Corner|Smash|Sail|Flood/.test(concept))return [95,sign*55];
+  if(/Post|Dagger|Deep Over|Y Cross/.test(concept))return [125,-sign*42];
+  if(/Drive|Levels/.test(concept))return [78,-sign*42];
+  if(/Boot|Play Action/.test(concept))return [110,-sign*35];
+  return [80,sign*30];
+ };
  const dot=(px,py,color,outline,label,dx,dy,delay)=>{
   const cx=Math.max(62,Math.min(918,px)),cy=Math.max(43,Math.min(377,py));
   const mx=Math.max(62,Math.min(918,cx+dx))-cx,my=Math.max(43,Math.min(377,cy+dy))-cy;
   return '<g class="wff-play-actor" style="--move-x:'+mx+'px;--move-y:'+my+'px;--play-delay:'+delay+'s;--play-duration:'+animationDuration+'s"><circle cx="'+cx+'" cy="'+cy+'" r="7.2" fill="'+color+'" stroke="'+outline+'" stroke-width="1.6"/><text x="'+cx+'" y="'+(cy+2.6)+'" fill="#fff" text-anchor="middle" font-family="system-ui" font-size="6.3" font-weight="800">'+label+'</text></g>';
  };
  formations.forEach(([dx,dy],i)=>{
-  const line=i<5,quarterback=i===5,runner=i===6;
+  const line=i<5,qb=i===5,runner=i===6,role=offensiveLabels[i]||"WR";
   let mx=0,my=0;
-  if(line){mx=snapType==="pass"||snapType==="incomplete"||snapType==="interception"?-10:13;my=(i-2)*2}
-  else if(quarterback){mx=snapType==="run"?12:snapType==="kneel"?-3:-24}
-  else if(runner){mx=snapType==="run"?Math.max(28,distance):snapType==="kneel"?0:12;my=snapType==="run"?-18:8}
-  else{mx=snapType==="run"?12:Math.min(110,55+(i%3)*17);my=(i%2?-1:1)*(15+(i%4)*13)}
-  players.push(dot(ballX+dx,210+dy,oc[0],oc[1],offensiveLabels[i]||"O",mx,my,line?0:.12));
+  if(line){mx=passPlay?-9:14;my=passPlay?0:runDirection*(i-2)*5}
+  else if(qb){mx=passPlay?-23:snapType==="kneel"?-3:runDirection===0?10:3;my=passPlay&&/Boot/.test(concept)?30:0}
+  else if(runner){
+   if(passPlay){mx=/Screens/.test(concept)?26:10;my=/Screens/.test(concept)?runDirection*32:14}
+   else{mx=Math.max(24,distance);my=runDirection*44}
+  }else if(!passPlay){mx=role==="FB"?25:12;my=role==="FB"?runDirection*22:0}
+  else [mx,my]=route(role,i-7);
+  players.push(dot(ballX+dx,210+dy,oc[0],oc[1],role,mx,my,i<5?0:.12));
  });
  defenders.forEach(([dx,dy],i)=>{
   const front=i<frontCount,back=i>=frontCount+lbCount;
-  let mx=front?-22:back?-35:-32,my=front?(i%2?5:-5):(i%2?16:-16);
-  if(snapType==="pass"||snapType==="incomplete"||snapType==="interception"){mx=front?-31:back?4:-12;my=back?(i%2?22:-22):my}
-  if(snapType==="sack")mx=front?-40:-18;
-  if(snapType==="run"){mx=front?-16:back?-32:-27;my=(i%2?1:-1)*(front?6:20)}
+  let mx=front?-22:back?-35:-32,my=front?runDirection*7:(i%2?16:-16);
+  if(passPlay){
+   mx=front?(isBlitz?-43:-29):back?(isZone?0:-13):(isBlitz?-35:isZone?4:-12);
+   my=back?(isZone?(i%2?14:-14):(i%2?27:-27)):my;
+  }
+  if(snapType==="sack")mx=front?-43:-20;
+  if(!passPlay){mx=front?-16:back?-35:-27;my=runDirection*28+(i%2?8:-8)}
   players.push(dot(ballX+dx,210+dy,dc[0],dc[1],defensiveLabels[i],mx,my,.18));
  });
  const ballTravel=snapType==="run"?Math.max(25,distance):snapType==="pass"||snapType==="incomplete"||snapType==="interception"?Math.min(150,Math.max(65,distance)):snapType==="punt"||snapType==="kickoff"?170:0;
