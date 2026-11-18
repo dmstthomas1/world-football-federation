@@ -42,9 +42,10 @@ function wffStaffBeginOffseason(state){
  for(const [key] of WFF_STAFF_ROLES)m.available[key]=Array.from({length:6},(_,i)=>wffStaffCandidate(state.teamId,m.year,key,i));
  m.history.unshift("Entered "+m.year+" offseason; staff market opened.");return true;
 }
+function roleLabel(key){return WFF_STAFF_ROLES.find(x=>x[0]===key)?.[1]||key}
 function wffStaffFire(state,key){
- if(!wffStaffOffseason(state)||!WFF_STAFF_STYLES[key]||!state.staff[key])return false;
- const old=state.staff[key];state.staff[key]=null;
+ if(!wffStaffOffseason(state)||!WFF_STAFF_STYLES[key]||!state.staff[key]||state.staff[key].vacant)return false;
+ const old=state.staff[key];state.staff[key]={...old,name:"Vacant — "+roleLabel(key),vacant:true};
  state.staffMarket.history.unshift("Released "+old.name+" ("+old.role+").");
  return true;
 }
@@ -59,7 +60,7 @@ function wffStaffHire(state,key,id){
 }
 function wffStaffNextSeason(state){
  if(!wffStaffOffseason(state))return false;
- const vacant=WFF_STAFF_ROLES.filter(([key])=>!state.staff[key]);if(vacant.length)return false;
+ const vacant=WFF_STAFF_ROLES.filter(([key])=>!state.staff[key]||state.staff[key].vacant);if(vacant.length)return false;
  state.finance.year++;state.week=1;state.wins=0;state.losses=0;state.staffMarket.phase="season";state.staffMarket.available={};state.staffMarket.history.unshift("Started "+state.finance.year+" season with full staff.");
  return true;
 }
@@ -71,14 +72,14 @@ function wffStaffMarketView(state){
  html+='</section>';
  for(const [key,role] of WFF_STAFF_ROLES){
  const p=state.staff[key];html+='<section class="panel"><h3>'+esc(role)+'</h3>';
- if(p)html+='<div class="line"><div><strong>'+esc(p.name)+'</strong><br><small>'+esc(p.style||p.specialty)+' • Leadership '+p.leadership+' • Development '+p.development+' • Evaluation '+p.evaluation+'</small><br><small>Philosophy fit: '+wffStaffFit(state,key,p)+'/100 • Abilities: '+esc((p.abilities||["Specialty focus"]).join(", "))+'</small></div>'+(off?'<button class="btn secondary" data-staff-fire="'+key+'">Fire</button>':"")+'</div>';
+ if(p&&!p.vacant)html+='<div class="line"><div><strong>'+esc(p.name)+'</strong><br><small>'+esc(p.style||p.specialty)+' • Leadership '+p.leadership+' • Development '+p.development+' • Evaluation '+p.evaluation+'</small><br><small>Philosophy fit: '+wffStaffFit(state,key,p)+'/100 • Abilities: '+esc((p.abilities||["Specialty focus"]).join(", "))+'</small></div>'+(off?'<button class="btn secondary" data-staff-fire="'+key+'">Fire</button>':"")+'</div>';
  else html+='<p class="notice">Vacant — hire a replacement before beginning the next season.</p>';
  if(off){html+='<details><summary>View available candidates</summary>';
  for(const candidate of m.available[key]||[])html+='<div class="line"><div><strong>'+esc(candidate.name)+'</strong> • '+esc(candidate.style)+'<br><small>Fit '+wffStaffFit(state,key,candidate)+'/100 • Leadership '+candidate.leadership+' • Development '+candidate.development+' • Evaluation '+candidate.evaluation+'</small><br><small>Ability: '+esc(candidate.abilities.join(", "))+' • '+candidate.contractYears+' years • $'+candidate.annualSalary.toFixed(2)+'M/year</small></div><button class="btn" data-staff-hire="'+key+'" data-candidate="'+candidate.id+'">Hire</button></div>';
  html+='</details>'}
  html+='</section>';
  }
- if(off)html+='<section class="panel"><h3>Finish Offseason</h3><p class="muted">Begin the next season after filling every staff vacancy. This prototype resets the exhibition record and advances the year; it is not yet a complete league offseason.</p><button class="btn" id="staff-next" '+(WFF_STAFF_ROLES.some(([key])=>!state.staff[key])?"disabled":"")+'>Begin Next Season</button></section>';
+ if(off)html+='<section class="panel"><h3>Finish Offseason</h3><p class="muted">Begin the next season after filling every staff vacancy. This prototype resets the exhibition record and advances the year; it is not yet a complete league offseason.</p><button class="btn" id="staff-next" '+(WFF_STAFF_ROLES.some(([key])=>!state.staff[key]||state.staff[key].vacant)?"disabled":"")+'>Begin Next Season</button></section>';
  html+='<section class="panel"><h3>Staff Transaction History</h3>'+m.history.slice(0,12).map(x=>'<p>'+esc(x)+'</p>').join("")+'</section>';
  return html;
 }
