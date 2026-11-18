@@ -55,8 +55,8 @@ function wffLiveEvent(message,major=false){
   let kind=null,title=null;
   if(/intercepted!/i.test(message)){kind="interception";title="INTERCEPTION!"}
   else if(/touchdown!/i.test(message)){kind="touchdown";title="TOUCHDOWN!"}
-  else if(/makes a .*yard field goal/i.test(message)){kind="field-good";title="FIELD GOAL GOOD!"}
-  else if(/misses a .*yard field goal/i.test(message)){kind="field-missed";title="FIELD GOAL MISSED!"}
+  else if(/field goal is GOOD!/i.test(message)){kind="field-good";title="FIELD GOAL GOOD!"}
+  else if(/field goal is NO GOOD!/i.test(message)){kind="field-missed";title="FIELD GOAL MISSED!"}
   if(kind)l.fieldHighlight={kind,title,detail:message};
  }
  l.events.unshift({q:l.clock.quarter,time:wffClockTime(l.clock.remaining),message,major});l.events=l.events.slice(0,50);
@@ -146,7 +146,7 @@ function wffLiveStep(){
  if(l.down===4){
  const decision=wffCoachFourthCall({yard:l.field,toGo:l.toGo,quarter:c.quarter,seconds:c.remaining,lead,timeouts:c.timeouts[side],aggression:profile.aggression,judgment:profile.judgment,seed:l.state.week+"-"+l.playCount+"-"+side,wind:l.weather.wind,weather:l.weather.condition});
  const kicker=wffKickerForTeam(l.state,side===0?l.us.id:l.opp.id);const kick=wffKickDecision(kicker,l.field,{...l.weather,endHalf:(c.quarter===2||c.quarter===4)&&c.remaining<=12});if(decision.call==="field_goal"&&!kick.advisable)decision.call=(l.field>=50&&l.toGo<=3)?"go":"punt";if(decision.call==="punt"){wffClockSnap(c,"run",{duration:7});wffSpecialTeamsKick(l,"punt",side,1-side);wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
- if(decision.call==="field_goal"){const made=l.r()<kick.probability;l.stats[side].plays++;l.playCount++;wffClockSnap(c,"run",{duration:5});if(made)l.score[side]+=3;wffAudio.event(made?"fieldGoalGood":"fieldGoalMiss",side,l);wffBroadcast.call(made?"fieldGoalGood":"fieldGoalMiss",l,side);wffLiveEvent((side===0?l.us.city:l.opp.city)+" "+(made?"makes":"misses")+" a "+Math.round(kick.distance)+"-yard field goal by "+kicker.name+" ("+kicker.archetype+").",true);if(made)wffSpecialTeamsKick(l,"kickoff",side,1-side);else wffLiveChangePossession(l.field);wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
+ if(decision.call==="field_goal"){const made=l.r()<kick.probability;l.stats[side].plays++;l.playCount++;wffClockSnap(c,"run",{duration:5});if(made)l.score[side]+=3;wffAudio.event(made?"fieldGoalGood":"fieldGoalMiss",side,l);wffBroadcast.call(made?"fieldGoalGood":"fieldGoalMiss",l,side);wffLiveEvent(kicker.name+": "+Math.round(kick.distance)+"-yard field goal "+(made?"is GOOD!":"is NO GOOD!"),true);if(made)wffSpecialTeamsKick(l,"kickoff",side,1-side);else wffLiveChangePossession(l.field);wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
  wffLiveEvent((side===0?l.us.city:l.opp.city)+" goes for it on fourth and "+l.toGo+".",true);wffAudio.event("critical",1-side,l);wffBroadcast.call("fourthTry",l,side);
  }
  if(l.down===3&&l.toGo<=3&&c.quarter>=3&&Math.abs(lead)<=8)wffAudio.event("critical",1-side,l);
