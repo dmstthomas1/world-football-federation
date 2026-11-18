@@ -293,7 +293,8 @@ function wffLiveStep(){
   l.playVisual={kind:"fumble",gain:0,side,concept:selected?.concept||""};
   wffClockSnap(c,"run",{duration:7});const st=l.stats[side];st.plays++;if(pass)st.pass++;else st.rush++;l.playCount++;
   wffLiveEvent(wffTurnoverRecord(l,side,fumble),true);
-  if(fumble.recoveredByDefense){wffAudio.event("turnover",1-side,l);wffLiveChangePossession()}
+  if(l.field<=2&&!fumble.recoveredByDefense&&l.r()<.25){wffLiveSafety(l,side,"offense recovered its own fumble in its end zone")}
+  else if(fumble.recoveredByDefense){wffAudio.event("turnover",1-side,l);wffLiveChangePossession()}
   else{l.down++;if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs after recovered fumble.",true);wffLiveChangePossession(l.field)}}
   wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
