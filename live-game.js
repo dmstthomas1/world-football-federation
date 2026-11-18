@@ -27,16 +27,25 @@ function wffLiveStart(state,redraw){
 function wffSpecialTeamsKick(l,type,kickingSide,receivingSide){
  // A new special-teams sequence owns the screen; retire the previous scoring graphic.
  l.fieldHighlight=null;l.playVisual=null;
- const punt=type==="punt",origin=punt?l.field:35;
- const distance=punt?Math.round(38+l.r()*22):Math.round(57+l.r()*16);
+ const punt=type==="punt",safetyKick=type==="safety",origin=punt?l.field:safetyKick?20:35;
+ const distance=punt?Math.round(38+l.r()*22):safetyKick?Math.round(45+l.r()*18):Math.round(57+l.r()*16);
  const landing=origin+distance;
  const touchback=landing>=100&&(punt?l.r()<.82:true);
  const returnYards=touchback?0:Math.round(5+l.r()*(punt?17:25));
- const receiveSpot=touchback?(punt?20:35):Math.max(1,Math.min(99,100-landing+returnYards));
+ const receiveSpot=touchback?(punt?20:safetyKick?30:35):Math.max(1,Math.min(99,100-landing+returnYards));
  const kicking=kickingSide===0?l.us:l.opp,receiving=receivingSide===0?l.us:l.opp;
  l.specialTeams={type,phase:"flight",kickingSide,receivingSide,origin,landing:Math.min(110,landing),distance,returnYards,receiveSpot,touchback};
- wffLiveEvent(kicking.city+(punt?" punts":" kicks off")+" — ball traveling "+distance+" yards.",true);
+ wffLiveEvent(kicking.city+(punt?" punts":safetyKick?" free-kicks after the safety":" kicks off")+" — ball traveling "+distance+" yards.",true);
  l.clock.running=false;
+}
+function wffLiveSafety(l,offenseSide,reason){
+ const defenseSide=1-offenseSide;
+ l.score[defenseSide]+=2;
+ l.stats[defenseSide].safeties=(l.stats[defenseSide].safeties||0)+1;
+ l.field=0;l.clock.running=false;
+ l.fieldHighlight={kind:"safety",title:"SAFETY! +2",detail:(defenseSide===0?l.us.city:l.opp.city)+" scores two points"};
+ wffLiveEvent("SAFETY! "+(defenseSide===0?l.us.city:l.opp.city)+" earns two points — "+reason+". The offense must free-kick from its own 20-yard line.",true);
+ l.specialTeams={type:"safety",phase:"scoreHold",kickingSide:offenseSide,receivingSide:defenseSide};
 }
 function wffTryTwoAfterTouchdown(l,side){
  const c=l.clock,diff=l.score[side]-l.score[1-side];
@@ -79,7 +88,7 @@ function wffSpecialTeamsAdvance(l){
  if(l.specialTeams?.phase==="conversion")return wffConversionAdvance(l);
  if(l.specialTeams?.phase==="scoreHold"){
   const k=l.specialTeams;l.specialTeams=null;
-  wffSpecialTeamsKick(l,"kickoff",k.kickingSide,k.receivingSide);
+  wffSpecialTeamsKick(l,k.type==="safety"?"safety":"kickoff",k.kickingSide,k.receivingSide);
   wffLiveRender();wffLiveSchedule();return true;
  }
  const k=l.specialTeams;if(!k)return false;
@@ -252,7 +261,7 @@ function wffLiveStep(){
  if(sack){
   l.playVisual={kind:"sack",gain:-sack.yards,side,concept:selected?.concept||""};
   if(rushOutcome.blitz){l.stats[1-side].blitzCalls=(l.stats[1-side].blitzCalls||0)+1;l.stats[side].blitzFaced=(l.stats[side].blitzFaced||0)+1}
-  const st=l.stats[side],dst=l.stats[1-side],loss=Math.min(sack.yards,Math.max(0,l.field-1));
+  const st=l.stats[side],dst=l.stats[1-side],loss=sack.yards;
   st.plays++;st.pass++;st.sacksAllowed=(st.sacksAllowed||0)+1;st.sackYardsLost=(st.sackYardsLost||0)+loss;st.yards-=loss;
   dst.sacks=(dst.sacks||0)+1;dst.sackYards=(dst.sackYards||0)+loss;
   l.playCount++;wffClockSnap(c,"run",{duration:7});
@@ -261,7 +270,8 @@ function wffLiveStep(){
   l.liveSacks.push({teamId:side===0?l.opp.id:l.us.id,name:sack.defender?.name||"Defender",position:sack.defender?.position||"EDGE",yards:loss});
   wffBroadcast.call("sack",l,side);
   wffLiveEvent((side===0?l.us.city:l.opp.city)+" — "+(sack.quarterback?.name||"Quarterback")+" SACKED by "+(sack.defender?.name||"Defender")+" for a loss of "+loss+" yards!",true);
-  if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs after the sack.",true);wffLiveChangePossession(l.field)}
+  if(l.field<=0){wffLiveSafety(l,side,"quarterback sacked in his own end zone")}
+  else if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs after the sack.",true);wffLiveChangePossession(l.field)}
   wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
  if(rushOutcome?.blitz){const st=l.stats[side],dst=l.stats[1-side];st.blitzFaced=(st.blitzFaced||0)+1;dst.blitzCalls=(dst.blitzCalls||0)+1;if(rushOutcome.pickup){st.blitzPickedUp=(st.blitzPickedUp||0)+1;wffLiveEvent("Blitz recognized and picked up — quarterback has time to throw.")}else if(rushOutcome.quickThrow){st.quickThrows=(st.quickThrows||0)+1;wffLiveEvent("Quarterback reads the blitz and releases a quick pass.")}}
@@ -301,7 +311,8 @@ function wffLiveStep(){
  else if(pass&&!complete)wffBroadcast.call("incomplete",l,side);
  else if(!pass&&!kneel&&gain<=0)wffBroadcast.call("runStop",l,1-side);
  l.field+=gain;
- if(l.field>=100){l.score[side]+=6;wffAudio.event("touchdown",side,l);wffBroadcast.call("touchdown",l,side);wffLiveEvent(name+" scores a touchdown!",true);l.specialTeams={type:"kickoff",phase:"conversion",goTwo:wffTryTwoAfterTouchdown(l,side),kickingSide:side,receivingSide:1-side};l.clock.running=false}
+ if(l.field<=0){wffLiveSafety(l,side,kneel?"quarterback kneels in his own end zone":"ball carrier tackled in his own end zone")}
+ else if(l.field>=100){l.score[side]+=6;wffAudio.event("touchdown",side,l);wffBroadcast.call("touchdown",l,side);wffLiveEvent(name+" scores a touchdown!",true);l.specialTeams={type:"kickoff",phase:"conversion",goTwo:wffTryTwoAfterTouchdown(l,side),kickingSide:side,receivingSide:1-side};l.clock.running=false}
  else if(gain>=l.toGo){st.firstDowns++;if(l.speed==="slow"&&l.playCount%3===0)wffBroadcast.call("firstDown",l,side);l.down=1;l.toGo=Math.min(10,100-l.field)}
  else{l.down++;l.toGo=Math.max(1,l.toGo-gain);if(l.down>4){st.turnovers++;wffAudio.event("fourthFail",side,l);wffBroadcast.call("fourthFail",l,side);wffLiveEvent("Turnover on downs.",true);wffLiveChangePossession()}}
  if(l.playCount>=230){c.quarter=4;c.remaining=0;wffLiveFinish();return}
