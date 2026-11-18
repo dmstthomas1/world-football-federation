@@ -59,8 +59,13 @@ function wffLiveStep(){
  const policy=wffClockChoose({...c,down:l.down},lead,opponentTimeouts,l.field);
  const urgent=(c.quarter===2||c.quarter===4)&&c.remaining<=120&&lead<=0;
  if(c.running){const userTempo=side===0?l.adjustments.tempo:"normal";const wait=policy==="drain"||userTempo==="drain"&&!urgent?37:urgent||userTempo==="hurry"?9:28;wffClockRunoff(c,wait);c.playClock=Math.max(1,40-wait);if(wffLiveEndPeriod()){wffLiveRender();return}}
- if(c.quarter===4&&lead<0&&l.possession!==0&&wffCoachTimeoutChoice({quarter:c.quarter,seconds:c.remaining,lead:l.score[0]-l.score[1],ownTimeouts:c.timeouts[0],opponentHasBall:true,opponentRunning:c.running,down:l.down})){
- c.timeouts[0]--;c.running=false;wffLiveEvent(l.us.city+" uses a timeout. "+c.timeouts[0]+" remaining.",true)}
+ // Either CPU coach can stop a running clock when trailing late.
+ const defenseSide=1-side,defenseLead=l.score[defenseSide]-l.score[side];
+ if(c.quarter===4&&defenseLead<0&&c.running&&c.timeouts[defenseSide]>0&&wffCoachTimeoutChoice({quarter:c.quarter,seconds:c.remaining,lead:defenseLead,ownTimeouts:c.timeouts[defenseSide],opponentHasBall:true,opponentRunning:c.running,down:l.down})){
+  c.timeouts[defenseSide]--;c.running=false;c.playClock=25;
+  wffLiveEvent((defenseSide===0?l.us.city:l.opp.city)+" calls timeout. "+c.timeouts[defenseSide]+" remaining.",true);
+  wffLiveRender();wffLiveSchedule();return;
+ }
  const prePenalty=wffPenaltyRoll(l,side,false,"pre");if(prePenalty){wffLiveEvent(wffPenaltyApply(l,prePenalty),true);c.running=false;wffLiveRender();wffLiveSchedule();return}
  if(l.down===4){
  const decision=wffCoachFourthCall({yard:l.field,toGo:l.toGo,quarter:c.quarter,seconds:c.remaining,lead,timeouts:c.timeouts[side],aggression:profile.aggression,judgment:profile.judgment,seed:l.state.week+"-"+l.playCount+"-"+side,wind:l.weather.wind,weather:l.weather.condition});
