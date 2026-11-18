@@ -163,13 +163,16 @@ function wffLiveStep(){
  const talentDelta=Math.max(-.06,Math.min(.06,(talent-opposingTalent)*.004));
  const rushOutcome=pass?wffPassRushOutcome(l,side):null;
  const completionChance=Math.max(.28,Math.min(.84,.64+mods.completion+talentDelta+(rushOutcome?.pickup ? .035 : 0)+(rushOutcome?.quickThrow ? .025 : 0)-(rushOutcome?.blitz&&!rushOutcome.pickup&&!rushOutcome.quickThrow ? .045 : 0)));
- const complete=pass&&l.r()<completionChance;
+ // A rare, pressure-driven throwaway: never count as a completion or interception.
+ const throwAway=pass&&!rushOutcome?.sack&&!!rushOutcome?.blitz&&!rushOutcome?.pickup&&!rushOutcome?.quickThrow&&l.r()<.075;
+ const complete=pass&&!throwAway&&l.r()<completionChance;
  const rawGain=kneel?-1:pass?(complete?Math.floor((rushOutcome?.quickThrow?2+l.r()*7:3+l.r()*18)+mods.passYards):0):Math.floor(-2+l.r()*12+mods.runYards+talentDelta*12);
  const gain=Math.max(-8,rawGain);
  const livePenalty=!kneel?wffPenaltyRoll(l,side,pass,"live"):null;
  if(livePenalty){wffClockSnap(c,pass?"pass_incomplete":"run",{duration:5});l.playCount++;wffLiveEvent(wffPenaltyApply(l,livePenalty),true);c.running=false;wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
  const sack=rushOutcome?.sack?rushOutcome:null;
  if(sack){
+  l.playVisual={kind:"sack",gain:-sack.yards,side,concept:selected?.concept||""};
   if(rushOutcome.blitz){l.stats[1-side].blitzCalls=(l.stats[1-side].blitzCalls||0)+1;l.stats[side].blitzFaced=(l.stats[side].blitzFaced||0)+1}
   const st=l.stats[side],dst=l.stats[1-side],loss=Math.min(sack.yards,Math.max(0,l.field-1));
   st.plays++;st.pass++;st.sacksAllowed=(st.sacksAllowed||0)+1;st.sackYardsLost=(st.sackYardsLost||0)+loss;st.yards-=loss;
@@ -183,19 +186,22 @@ function wffLiveStep(){
   wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
  if(rushOutcome?.blitz){const st=l.stats[side],dst=l.stats[1-side];st.blitzFaced=(st.blitzFaced||0)+1;dst.blitzCalls=(dst.blitzCalls||0)+1;if(rushOutcome.pickup){st.blitzPickedUp=(st.blitzPickedUp||0)+1;wffLiveEvent("Blitz recognized and picked up — quarterback has time to throw.")}else if(rushOutcome.quickThrow){st.quickThrows=(st.quickThrows||0)+1;wffLiveEvent("Quarterback reads the blitz and releases a quick pass.")}}
- const turnoverPass=pass?wffTurnoverPass(l,side,{pressure:defenseFocus==="blitz",desperate:urgent}):null;
+ const turnoverPass=pass&&!throwAway?wffTurnoverPass(l,side,{pressure:defenseFocus==="blitz",desperate:urgent}):null;
  if(turnoverPass?.type==="interception"){
+  l.playVisual={kind:"interception",gain:0,side,concept:selected?.concept||""};
   wffClockSnap(c,"turnover",{duration:6});const st=l.stats[side];st.plays++;st.pass++;l.playCount++;
   wffLiveEvent(wffTurnoverRecord(l,side,turnoverPass),true);wffAudio.event("turnover",1-side,l);
   wffLiveChangePossession();wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
  if(turnoverPass?.type==="nearPick"){
+  l.playVisual={kind:"incomplete",gain:0,side,concept:selected?.concept||""};
   wffClockSnap(c,"pass_incomplete",{duration:6});const st=l.stats[side];st.plays++;st.pass++;l.playCount++;
   wffLiveEvent(wffTurnoverRecord(l,side,turnoverPass),true);l.down++;if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs.",true);wffLiveChangePossession(l.field)}
   wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
- const fumble=!kneel&&(!pass||complete)?wffTurnoverFumble(l,side,{pass,heavyHit:defenseFocus==="run"}):null;
+ const fumble=!kneel&&!throwAway&&(!pass||complete)?wffTurnoverFumble(l,side,{pass,heavyHit:defenseFocus==="run"}):null;
  if(fumble){
+  l.playVisual={kind:"fumble",gain:0,side,concept:selected?.concept||""};
   wffClockSnap(c,"run",{duration:7});const st=l.stats[side];st.plays++;if(pass)st.pass++;else st.rush++;l.playCount++;
   wffLiveEvent(wffTurnoverRecord(l,side,fumble),true);
   if(fumble.recoveredByDefense){wffAudio.event("turnover",1-side,l);wffLiveChangePossession()}
@@ -205,10 +211,11 @@ function wffLiveStep(){
  if(l.formation)l.formation.playType=kneel?"Kneel":pass?"Pass":"Run";
  if(selected)wffLiveEvent((side===0?l.us.city:l.opp.city)+" calls "+selected.formation+" "+selected.variant+" — "+selected.concept+" against "+l.calledPlay.defenseFormation+" "+l.calledPlay.defense.concept+".");
  const kind=kneel?"kneel":pass?(complete?"pass_complete":"pass_incomplete"):"run";
+ l.playVisual={kind:throwAway?"throwaway":kneel?"kneel":pass?(complete?"complete":"incomplete"):"run",gain,concept:selected?.concept||"",side,formation:l.formation?.formation};
  wffClockSnap(c,kind,{duration:kind==="pass_incomplete"?5:6});
  const st=l.stats[side];st.plays++;l.playCount++;if(pass)st.pass++;else st.rush++;st.yards+=gain;
  const name=side===0?l.us.city:l.opp.city;
- const label=kneel?"Quarterback kneels to protect the lead.":pass?(complete?"Pass complete for "+gain+" yards.":"Pass incomplete; game clock stops."):"Run gains "+gain+" yards.";
+ const label=kneel?"Quarterback kneels to protect the lead.":pass?(throwAway?"Quarterback throws the ball away under pressure.":complete?"Pass complete for "+gain+" yards.":"Pass incomplete; game clock stops."):"Run gains "+gain+" yards.";
  const detailed=" "+name+" — "+label+" ("+wffFieldDown(l)+")";
  wffLiveEvent(detailed);
  l.field+=gain;
