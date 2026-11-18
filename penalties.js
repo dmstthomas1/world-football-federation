@@ -39,9 +39,9 @@ function wffPenaltyGroup(p){return dnaGroup(p.position)}
 function wffPenaltyDiscipline(p){return Math.max(25,Math.min(99,Number(p.mentality?.discipline??p.ratings?.awareness??70)))}
 function wffTeamDiscipline(l,side){
  if(side===0){const roster=l.state.roster||[];return roster.length?roster.reduce((n,p)=>n+wffPenaltyDiscipline(p),0)/roster.length:70}
- return 62+(dnaHash("discipline|"+l.opp.id)%25);
+ const roster=wffPenaltyRoster(l,side);return roster.reduce((n,p)=>n+wffPenaltyDiscipline(p),0)/(roster.length||1);
 }
-function wffPenaltyRoster(l,side){return side===0?(l.state.roster||[]):[]}
+function wffPenaltyRoster(l,side){return side===0?(l.state.roster||[]):(l.opponentPenaltyRoster||(l.opponentPenaltyRoster=makeRoster(l.opp.id).map((p,i)=>dnaBuild(p,l.opp.id,i,false))))}
 function wffPenaltyPlayer(l,side,rule){
  const roster=wffPenaltyRoster(l,side),eligible=roster.filter(p=>rule.positions.includes(wffPenaltyGroup(p)));
  if(!eligible.length)return {name:side===0?"Unknown player":"CPU defender",position:""};
@@ -53,7 +53,7 @@ function wffPenaltyPlayer(l,side,rule){
 function wffPenaltyRoll(l,offenseSide,pass,phase){
  // ~5-7 assessed fouls per club per game at 65-75 snaps, modulated
  // by discipline. Pre-snap checks are exclusive with live-ball checks.
- const base=phase==="pre"?.022:phase==="kick"?.012:.056;
+ const base=phase==="pre"?.014:phase==="kick"?.012:.038;
  const potential=[offenseSide,1-offenseSide].map(side=>{
   const discipline=wffTeamDiscipline(l,side);
   const multiplier=Math.max(.65,Math.min(1.55,1+(72-discipline)*.022));
