@@ -39,6 +39,7 @@ function wffPlayerRegistry(state){
 }
 function wffRegisterPlayer(state,teamId,p){
  const id=wffPlayerId(teamId,p),registry=wffPlayerRegistry(state);
+ p.playerId=id;
  if(!registry[id]){
   const seed=dnaHash(id);
   registry[id]={id,name:p.name,position:p.position,originalTeamId:teamId,teamId,age:p.age??null,height:p.height??null,weight:p.weight??null,college:WFF_COLLEGES[Math.floor(seed/13)%WFF_COLLEGES.length],hometown:WFF_HOMETOWNS[seed%WFF_HOMETOWNS.length],rookie:!!p.rookie,yearsPro:p.yearsPro??p.experience??null,firstSeenYear:state.finance?.year??null,contract:p.contract??null};
@@ -85,7 +86,7 @@ function wffStatSeed(state,g){return dnaRandom(dnaHash("wff-box-v1|"+state.finan
 function wffStatPick(pool,r){return pool[Math.floor(r()*pool.length)]||null}
 function wffStatAdd(map,p,teamId,field,value,week){
  if(!p||!value)return;
- const key=teamId+"|"+p.name+"|"+p.position;
+ const key=wffPlayerId(teamId,p);
  if(!map[key])map[key]={teamId,name:p.name,position:p.position,age:p.age,rookie:!!p.rookie,week,...Object.fromEntries(WFF_STAT_FIELDS.map(x=>[x,0]))};
  map[key][field]+=value;
 }
@@ -139,7 +140,7 @@ function wffSeasonPlayers(state){
  wffEnsureLeagueBoxScores(state);
  const map={};
  for(const box of Object.values(state.leagueBoxScores))for(const p of box){
-  const key=p.teamId+"|"+p.name+"|"+p.position;
+  const key=wffPlayerId(p.teamId,p);
   if(!map[key])map[key]={...p,playerId:wffPlayerId(p.teamId,p)};else for(const field of WFF_STAT_FIELDS)map[key][field]+=(p[field]||0);
  }
  return Object.values(map);
