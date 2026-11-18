@@ -23,18 +23,18 @@ function wffFieldView(l){
  const formation=packageInfo.formation||"Singleback",variant=l.calledPlay?.play?.variant||"Ace",personnel=packageInfo.personnel||"11";
  // Coordinates are SVG pixels relative to the line of scrimmage; offense attacks right.
  // Keep all 11 players separated by at least a visible marker diameter.
- const lineY=[-56,-28,0,28,56];
- const formations=lineY.map((dy)=>[-13,dy]);
+ const lineY=[-38,-19,0,19,38];
+ const formations=lineY.map((dy)=>[-9,dy]);
  const offensiveLabels=["LT","LG","C","RG","RT"];
  const shotgun=/Shotgun/.test(formation),pistol=/Pistol/.test(formation),underCenter=/I-Form|Strong I|Weak I/.test(formation);
- formations.push([shotgun?-75:pistol?-58:-38,0]);offensiveLabels.push("QB");
- const rb=shotgun?[-87,38]:pistol?[-96,0]:underCenter?[-110,0]:[-83,0];
+ formations.push([shotgun?-47:pistol?-36:-19,0]);offensiveLabels.push("QB");
+ const rb=shotgun?[-60,27]:pistol?[-75,0]:underCenter?[-83,0]:[-63,0];
  formations.push(rb);offensiveLabels.push("HB");
  // The remaining four positions reflect the actual personnel package.
  // Assign positions by personnel, then use named formation templates rather than random spreading.
  const roleSets={"10":["WR","WR","WR","WR"],"11":["WR","WR","WR","TE"],"12":["WR","WR","TE","TE"],"21":["WR","WR","TE","FB"],"22":["WR","TE","TE","FB"],"23":["TE","TE","TE","FB"]};
  const eligible=(roleSets[personnel]||roleSets["11"]).slice();
- const places={WR:[[-13,-151],[-13,151],[-13,-110],[-13,110]],TE:[[-15,-86],[-15,86],[-42,-104]],FB:[[-77,0]]};
+ const places={WR:[[-9,-151],[-9,151],[-9,-110],[-9,110]],TE:[[-10,-56],[-10,56],[-31,-76]],FB:[[-52,0]]};
  const used={WR:0,TE:0,FB:0};
  let positions=eligible.map(role=>places[role][used[role]++]||[-40,100]);
  const receivers=eligible.map((role,i)=>role==="WR"?i:-1).filter(i=>i>=0);
@@ -73,20 +73,20 @@ function wffFieldView(l){
   if(tightEnds.length>=2)positions[tightEnds[1]]=[-16,86];
  }
  if(underCenter){
-  formations[6]=[-117,0];
-  if(fullback>=0)positions[fullback]=[-78,formation==="Strong I"?37:formation==="Weak I"?-37:0];
+  formations[6]=[-87,0];
+  if(fullback>=0)positions[fullback]=[-48,formation==="Strong I"?26:formation==="Weak I"?-26:0];
  }
  if(formation==="Goal Line"){
-  formations[6]=[-101,0];
-  tightEnds.forEach((i,n)=>positions[i]=[-16,n%2===0?-87:87]);
-  if(fullback>=0)positions[fullback]=[-72,0];
+  formations[6]=[-72,0];
+  tightEnds.forEach((i,n)=>positions[i]=[-10,n%2===0?-56:56]);
+  if(fullback>=0)positions[fullback]=[-43,0];
  }
  // Keep exact eleven-player counts and avoid overlapping markers.
  const placed=[...formations];
  positions.forEach((point,i)=>{
   let [px,py]=point;
-  for(let tries=0;tries<15&&placed.some(([ox,oy])=>Math.hypot(px-ox,py-oy)<21);tries++){
-   px-=tries%2===0?17:0;
+  for(let tries=0;tries<15&&placed.some(([ox,oy])=>Math.hypot(px-ox,py-oy)<17);tries++){
+   px-=tries%2===0?12:0;
    py=Math.max(-164,Math.min(164,py+(py>=0?1:-1)*18));
   }
   placed.push([px,py]);formations.push([px,py]);offensiveLabels.push(eligible[i]);
@@ -98,17 +98,17 @@ function wffFieldView(l){
  const over=/Over|Bear/.test(df),under=/Under/.test(df),stack=/Stack/.test(df);
  const offset=over?19:under?-19:0;
  for(let i=0;i<frontCount;i++){
-  const dy=(i-(frontCount-1)/2)*(frontCount>=5?29:frontCount===4?43:55)+offset;
-  defenders.push([17,dy]);defensiveLabels.push("DL");
+  const dy=(i-(frontCount-1)/2 )*(frontCount>=5?20:frontCount===4?29:39)+offset;
+  defenders.push([12,dy]);defensiveLabels.push("DL");
  }
  for(let i=0;i<lbCount;i++){
-  const dy=(i-(lbCount-1)/2)*(lbCount>=4?51:lbCount===3?76:96)+(over?14:under?-14:0);
-  defenders.push([stack?76:isGoal?55:68,dy]);defensiveLabels.push("LB");
+  const dy=(i-(lbCount-1)/2 )*(lbCount>=4?35:lbCount===3?49:64)+(over?14:under?-14:0);
+  defenders.push([stack?53:isGoal?30:47,dy]);defensiveLabels.push("LB");
  }
  const dbCount=11-defenders.length;
  // Cornerbacks align opposite outside receivers; safeties are deeper.
  for(let i=0;i<dbCount;i++){
-  const spots=dbCount===6?[[68,-151],[68,151],[105,-100],[105,100],[151,-50],[151,50]]:dbCount===5?[[70,-151],[70,151],[104,0],[155,-73],[155,73]]:dbCount===4?[[70,-151],[70,151],[157,-75],[157,75]]:[[70,-151],[70,151],[155,0]];
+  const spots=isGoal?[[35,-113],[35,113],[61,0]]:dbCount===6?[[68,-151],[68,151],[105,-100],[105,100],[151,-50],[151,50]]:dbCount===5?[[70,-151],[70,151],[104,0],[155,-73],[155,73]]:dbCount===4?[[70,-151],[70,151],[157,-75],[157,75]]:[[70,-151],[70,151],[155,0]];
   defenders.push(spots[i]||[155,(i-2)*40]);defensiveLabels.push(i<2?"CB":i<4?"S":"DB");
  }
  // Red-zone camera geometry: a defense backed up near its goal line must
@@ -123,7 +123,7 @@ function wffFieldView(l){
   const goalDepth=depthLimit<100;
   defenders.forEach((p,i)=>{
    const layer=i<frontCount?0:i<frontCount+lbCount?1:2;
-   const target=layer===0?Math.min(16,depthLimit*.23):layer===1?Math.min(42,depthLimit*.52):Math.min(73,depthLimit*.82);
+   const target=layer===0?Math.min(12,depthLimit*.23):layer===1?Math.min(isGoal?30:42,depthLimit*.52):Math.min(isGoal?57:73,depthLimit*.82);
    p[0]=Math.max(10,Math.min(depthLimit,target));
    if(goalDepth&&layer===2){
     // Deep defenders stagger slightly, retaining a visible safety shell.
