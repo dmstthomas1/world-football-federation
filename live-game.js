@@ -158,10 +158,13 @@ function wffPassRushOutcome(l,side){
  const recognition=Math.max(.08,Math.min(.88,.43+(pocket-75)*.011+(protection-75)*.007+(blockers.length-5)*.018));
  const pickup=blitz&&l.r()<recognition;
  const quickThrow=blitz&&!pickup&&l.r()<Math.max(.08,Math.min(.65,.27+(pocket-75)*.008));
- const edgeBoost=edge?Math.max(0,edge.skill-protection)*.002:0;
- let chance=.057+(rush-protection)*.003+edgeBoost+(longDown?.008:0)-(pocket-75)*.0006;
- if(blitz)chance+=pickup?-.020:quickThrow?-.030:.034;
- chance=Math.max(.012,Math.min(.16,chance));
+ const edgeBoost=edge?Math.max(0,edge.skill-protection)*.0012:0;
+ let chance=.034+(rush-protection)*.0035+edgeBoost+(longDown?.010:0)-(pocket-75)*.0008;
+ if(blitz)chance+=pickup?-.027:quickThrow?-.036:.027;
+ if(blockers.length>=7)chance-=.012;
+ if(protection>=rush+12)chance-=.023;
+ if(rush>=protection+12)chance+=.025;
+ chance=Math.max(.001,Math.min(.18,chance));
  const result={blitz,pickup,quickThrow,chance,sack:false};
  if(l.r()>=chance)return result;
  const candidates=rushers.slice(0,5),weights=candidates.map(p=>Math.max(1,p.skill-50)*(group(p.player,"EDGE")?1.4:1));
