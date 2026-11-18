@@ -161,7 +161,7 @@ function wffPassRushOutcome(l,side){
  const edge=rushers.find(p=>group(p.player,"EDGE"));
  const focus=l.plans?.[1-side]?.defense;
  const concept=l.calledPlay?.defense?.concept||"";
- const blitz=focus==="blitz"||/Blitz|Pressure/i.test(concept);
+ const blitz=/Blitz|Pressure/i.test(concept);
  const longDown=l.toGo>=8&&l.down>=3;
  // Recognition and protection are independent of pass rush talent.
  const recognition=Math.max(.08,Math.min(.88,.43+(pocket-75)*.011+(protection-75)*.007+(blockers.length-5)*.018));
