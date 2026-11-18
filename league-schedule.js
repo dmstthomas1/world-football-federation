@@ -56,7 +56,7 @@ function wffSeasonSchedule(year){
 function wffScheduleInit(state){
  if(state.leagueSchedule?.year===state.finance.year&&state.leagueSchedule.version===2)return false;
  state.leagueSchedule=wffSeasonSchedule(state.finance.year);
- state.leagueResults={};state.postseason=null;return true;
+ state.leagueResults={};state.leagueBoxScores={};state.postseason=null;return true;
 }
 function wffNextMatch(state){wffScheduleInit(state);return (state.leagueSchedule.weeks[state.week-1]||[]).find(g=>g.home===state.teamId||g.away===state.teamId)||null}
 function wffLeagueScore(state,game){
@@ -72,9 +72,9 @@ function wffLeagueCompleteWeek(state,playerScore){
   if(own&&!playerScore)throw Error("Player game must finish before advancing week");
   state.leagueResults[g.id]={...g,...(own?playerScore:wffLeagueScore(state,g))};
  }
- state.week++;
+ wffEnsureLeagueBoxScores(state);state.week++;
  while(state.week<=18&&!wffNextMatch(state)){const byeGames=state.leagueSchedule.weeks[state.week-1]||[];for(const g of byeGames)if(!state.leagueResults[g.id])state.leagueResults[g.id]={...g,...wffLeagueScore(state,g)};state.week++}
- if(state.week>18&&!state.postseason)wffBuildPlayoffs(state);
+ wffEnsureLeagueBoxScores(state);wffComputeAwards(state);if(state.week>18&&!state.postseason)wffBuildPlayoffs(state);
 }
 function wffStandings(state){
  const rows=teams.map(t=>({id:t.id,w:0,l:0,t:0,pf:0,pa:0,divisionWins:0,divisionLosses:0}));
