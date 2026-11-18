@@ -25,6 +25,8 @@ function wffLiveStart(state,redraw){
  wffLiveRender();wffLiveSchedule();
 }
 function wffSpecialTeamsKick(l,type,kickingSide,receivingSide){
+ // A new special-teams sequence owns the screen; retire the previous scoring graphic.
+ l.fieldHighlight=null;l.playVisual=null;
  const punt=type==="punt",origin=punt?l.field:35;
  const distance=punt?Math.round(38+l.r()*22):Math.round(57+l.r()*16);
  const landing=origin+distance;
@@ -38,6 +40,7 @@ function wffSpecialTeamsKick(l,type,kickingSide,receivingSide){
 }
 function wffSpecialTeamsAdvance(l){
  const k=l.specialTeams;if(!k)return false;
+ l.fieldHighlight=null;
  if(k.phase==="flight"){
   k.phase=k.touchback?"touchback":"return";
   wffLiveEvent(k.touchback?"Ball reaches the end zone — touchback.":(k.receivingSide===0?l.us.city:l.opp.city)+" fields the "+(k.type==="punt"?"punt":"kickoff")+" and starts the return.",true);
@@ -57,7 +60,7 @@ function wffLiveEvent(message,major=false){
   else if(/touchdown!/i.test(message)){kind="touchdown";title="TOUCHDOWN!"}
   else if(/field goal is GOOD!/i.test(message)){kind="field-good";title="FIELD GOAL GOOD!"}
   else if(/field goal is NO GOOD!/i.test(message)){kind="field-missed";title="FIELD GOAL MISSED!"}
-  if(kind)l.fieldHighlight={kind,title,detail:message};
+  if(kind&&!l.specialTeams)l.fieldHighlight={kind,title,detail:message};
  }
  l.events.unshift({q:l.clock.quarter,time:wffClockTime(l.clock.remaining),message,major});l.events=l.events.slice(0,50);
 }
