@@ -44,7 +44,21 @@ function wffSimBox(state,g){
 }
 function wffEnsureLeagueBoxScores(state){
  if(!state.leagueBoxScores)state.leagueBoxScores={};
- for(const g of Object.values(state.leagueResults||{}))if(!state.leagueBoxScores[g.id])state.leagueBoxScores[g.id]=wffSimBox(state,g);
+ for(const g of Object.values(state.leagueResults||{})){
+  if(!state.leagueBoxScores[g.id])state.leagueBoxScores[g.id]=wffSimBox(state,g);
+  const live=(state.games||[]).find(x=>x.fixtureId===g.id&&Array.isArray(x.liveSacks));
+  if(!live)continue;
+  const box=state.leagueBoxScores[g.id];
+  // Replace modeled sacks with actual named live sacks, once per fixture.
+  if(box._liveSacksApplied)continue;
+  for(const p of box)p.sacks=0;
+  for(const sack of live.liveSacks){
+   let p=box.find(p=>p.teamId===sack.teamId&&p.name===sack.name&&p.position===sack.position);
+   if(!p){p={teamId:sack.teamId,name:sack.name,position:sack.position,week:g.week,...Object.fromEntries(WFF_STAT_FIELDS.map(k=>[k,0]))};box.push(p)}
+   p.sacks++;
+  }
+  box._liveSacksApplied=true;
+ }
 }
 function wffSeasonPlayers(state){
  wffEnsureLeagueBoxScores(state);
