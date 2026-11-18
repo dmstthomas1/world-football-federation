@@ -159,6 +159,23 @@ function wffGameBoxScoreView(state,game){
 }
 
 function wffPlayerProfileLink(p){return '<button type="button" class="wff-player-link" data-wff-player="'+esc(String(p.teamId))+'|'+esc(p.name)+'|'+esc(p.position)+'">'+esc(p.name)+'</button>'}
+function wffPlayerPortrait(playerId,position){
+ const seed=dnaHash(String(playerId));
+ const skins=["#704a39","#a36e50","#c48d68","#dfb18d","#f0cba9"];
+ const jerseys=["#176d85","#284f92","#7a3e88","#8b403c","#2b7460"];
+ const skin=skins[seed%skins.length],jersey=jerseys[Math.floor(seed/13)%jerseys.length];
+ const hair=["#241d1b","#4a3025","#181c27"][Math.floor(seed/7)%3];
+ return '<svg class="wff-player-portrait" viewBox="0 0 200 240" role="img" aria-label="Fictional illustrated player portrait" xmlns="http://www.w3.org/2000/svg">'+
+ '<rect width="200" height="240" rx="14" fill="#172d48"/><circle cx="100" cy="82" r="66" fill="#fff" opacity=".06"/>'+
+ '<path d="M12 240 L24 180 Q35 154 75 148 L125 148 Q165 154 176 180 L188 240Z" fill="'+jersey+'"/>'+
+ '<path d="M77 134 H123 V162 L100 178 L77 162Z" fill="'+skin+'"/>'+
+ '<ellipse cx="100" cy="94" rx="40" ry="52" fill="'+skin+'"/>'+
+ '<path d="M60 83 Q56 38 100 39 Q144 38 140 83 Q123 56 100 62 Q77 56 60 83Z" fill="'+hair+'"/>'+
+ '<path d="M79 98 H90 M110 98 H121" stroke="'+hair+'" stroke-width="3" stroke-linecap="round"/>'+
+ '<path d="M90 121 Q100 126 110 121" fill="none" stroke="#6b4436" stroke-width="2"/>'+
+ '<path d="M71 152 L100 182 L129 152" stroke="#f1f5fa" stroke-width="7" fill="none"/>'+
+ '<text x="100" y="224" text-anchor="middle" font-size="30" font-weight="900" fill="white">'+(10+seed%89)+'</text></svg>';
+}
 function wffPlayerProfileView(state,teamId,name,position){
  wffEnsurePlayerRegistry(state);
  const roster=wffStatRoster(state,teamId),player=roster.find(p=>p.name===name&&p.position===position);
@@ -168,7 +185,7 @@ function wffPlayerProfileView(state,teamId,name,position){
  const metric=(label,value)=>'<div class="stat"><small>'+label+'</small><b>'+safe(value)+'</b></div>';
  const contract=player?.contract||record.contract;
  const years=player?.yearsPro??player?.experience??record.yearsPro;
- let html='<section class="panel"><h2>'+safe(record.name)+' <small>'+safe(record.position)+'</small></h2><p>'+wffLogo(team,32)+' '+safe(teamLabel(team))+'</p><div class="grid">'+metric("Position",record.position)+metric("Age",player?.age??record.age)+metric("Height",(player?.height??record.height)?dnaFormatHeight(player?.height??record.height):"Not recorded")+metric("Weight",(player?.weight??record.weight)?(player?.weight??record.weight)+" lb":"Not recorded")+metric("Overall",player?.overall)+metric("Archetype",player?.archetype)+metric("Experience",years!=null?years+" years":"Not recorded")+metric("Rookie",player?.rookie===true||record.rookie?"Yes":years===0?"Yes":"Not confirmed")+'</div><h3>Player background</h3><p>Hometown: '+safe(record.hometown)+' • College: '+safe(record.college)+'</p><p class="muted">Fictional biography saved to this franchise. Existing players receive a consistent generated background.</p><h3>Contract</h3><p>'+safe(contract?.years??player?.contractYears??"Contract term not recorded")+(contract?.years!=null?" years":"")+' • '+(contract?.salary!=null?safe(contract.salary):"Salary not recorded")+'</p></section>';
+ let html='<section class="panel"><div class="wff-profile-header"><div class="wff-profile-portrait-frame">'+wffPlayerPortrait(id,record.position)+'</div><div class="wff-profile-summary"><h2>'+safe(record.name)+' <small>'+safe(record.position)+'</small></h2><p>'+wffLogo(team,32)+' '+safe(teamLabel(team))+'</p><div class="wff-profile-chips"><span>OVR '+safe(player?.overall??"—")+'</span><span>'+safe(player?.archetype??"Player")+'</span></div><p class="muted">Fictional illustrated player portrait</p></div></div><div class="grid">'+metric("Position",record.position)+metric("Age",player?.age??record.age)+metric("Height",(player?.height??record.height)?dnaFormatHeight(player?.height??record.height):"Not recorded")+metric("Weight",(player?.weight??record.weight)?(player?.weight??record.weight)+" lb":"Not recorded")+metric("Overall",player?.overall)+metric("Archetype",player?.archetype)+metric("Experience",years!=null?years+" years":"Not recorded")+metric("Rookie",player?.rookie===true||record.rookie?"Yes":years===0?"Yes":"Not confirmed")+'</div><h3>Player background</h3><p>Hometown: '+safe(record.hometown)+' • College: '+safe(record.college)+'</p><p class="muted">Fictional biography saved to this franchise. Existing players receive a consistent generated background.</p><h3>Contract</h3><p>'+safe(contract?.years??player?.contractYears??"Contract term not recorded")+(contract?.years!=null?" years":"")+' • '+(contract?.salary!=null?safe(contract.salary):"Salary not recorded")+'</p></section>';
  html+='<section class="panel"><h2>Current Season Statistics</h2><p class="muted">Individual production is currently modeled, except explicitly tracked live events.</p>';
  if(!stats)html+='<p>No season statistics available.</p>';
  else for(const [title,filter,cols] of WFF_PLAYER_STAT_SECTIONS){if(!filter(stats))continue;html+='<h3>'+title+'</h3><div class="grid">'+cols.map(([label,key])=>metric(label,wffPlayerMetric(stats,key))).join("")+'</div>'}
