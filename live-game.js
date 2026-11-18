@@ -61,6 +61,25 @@ function wffLiveStep(){
  const gain=kneel?-1:pass?(complete?Math.floor(3+l.r()*18):0):Math.floor(-2+l.r()*(defenseFocus==="run"?9:12));
  const livePenalty=!kneel?wffPenaltyRoll(l,side,pass,"live"):null;
  if(livePenalty){wffClockSnap(c,pass?"pass_incomplete":"run",{duration:5});l.playCount++;wffLiveEvent(wffPenaltyApply(l,livePenalty),true);c.running=false;wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
+ const turnoverPass=pass?wffTurnoverPass(l,side,{pressure:defenseFocus==="pass",desperate:urgent}):null;
+ if(turnoverPass?.type==="interception"){
+  wffClockSnap(c,"turnover",{duration:6});const st=l.stats[side];st.plays++;st.pass++;l.playCount++;
+  wffLiveEvent(wffTurnoverRecord(l,side,turnoverPass),true);wffAudio.event("turnover",1-side,l);
+  wffLiveChangePossession();wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
+ }
+ if(turnoverPass?.type==="nearPick"){
+  wffClockSnap(c,"pass_incomplete",{duration:6});const st=l.stats[side];st.plays++;st.pass++;l.playCount++;
+  wffLiveEvent(wffTurnoverRecord(l,side,turnoverPass),true);l.down++;if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs.",true);wffLiveChangePossession()}
+  wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
+ }
+ const fumble=!kneel&&(!pass||complete)?wffTurnoverFumble(l,side,{pass,heavyHit:defenseFocus==="run"}):null;
+ if(fumble){
+  wffClockSnap(c,"run",{duration:7});const st=l.stats[side];st.plays++;if(pass)st.pass++;else st.rush++;l.playCount++;
+  wffLiveEvent(wffTurnoverRecord(l,side,fumble),true);
+  if(fumble.recoveredByDefense){wffAudio.event("turnover",1-side,l);wffLiveChangePossession()}
+  else{l.down++;if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs after recovered fumble.",true);wffLiveChangePossession()}}
+  wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
+ }
  const kind=kneel?"kneel":pass?(complete?"pass_complete":"pass_incomplete"):"run";
  wffClockSnap(c,kind,{duration:kind==="pass_incomplete"?5:6});
  const st=l.stats[side];st.plays++;l.playCount++;if(pass)st.pass++;else st.rush++;st.yards+=gain;
@@ -79,7 +98,7 @@ function wffLiveFinish(){
  const l=wffLive;if(!l||l.complete)return;wffBroadcast.call("final",l);l.complete=true;l.breakType=null;wffLiveStop();wffAudio.stop();
  const state=l.state;const homeScore=l.score[0],awayScore=l.score[1];
  if(homeScore>awayScore)state.wins++;else if(homeScore<awayScore)state.losses++;
- const game={week:state.week,home:teamLabel(l.us),away:teamLabel(l.opp),homeScore,awayScore,totalPlays:l.playCount,penalties:l.penaltyLog,log:l.events.slice(0,16).map(x=>x.message),stats:l.stats};
+ const game={week:state.week,home:teamLabel(l.us),away:teamLabel(l.opp),homeScore,awayScore,totalPlays:l.playCount,penalties:l.penaltyLog,turnovers:l.stats.map(x=>({interceptions:x.interceptions||0,fumbles:x.fumbles||0,fumblesLost:x.fumblesLost||0,nearInterceptions:x.nearInterceptions||0})),log:l.events.slice(0,16).map(x=>x.message),stats:l.stats};
  state.games.push(game);wffBusinessRecordGame(state,game);
  const medical=wffPlayWorkload(state,l.weather,"week-"+state.week);
  if(medical.injuries.length)wffLiveEvent("Medical report: "+medical.injuries.length+" injuries recorded.",true);
@@ -91,7 +110,7 @@ function wffLiveRender(){
  const ticker=l.league.slice(0,8).map(x=>'<div class="line"><span>'+esc(x.away)+' '+x.awayScore+'</span><span>'+esc(x.home)+' '+x.homeScore+'</span></div>').join("");
  const adjustment=l.breakType==="halftime"?'<section class="panel"><h2>Halftime Coaching Adjustments</h2><p class="muted">Set broad second-half priorities. The coaches still call every play automatically.</p><div class="grid">'+[["offense","Offensive emphasis",[["balanced","Balanced"],["run","Lean on the run"],["pass","Attack through the air"]]],["defense","Defensive emphasis",[["balanced","Balanced"],["run","Stop the run"],["pass","Defend the pass"]]],["tempo","Tempo",[["normal","Normal"],["hurry","Faster tempo"],["drain","Control the clock"]]]].map(([key,title,options])=>'<label class="stat">'+title+'<select data-live-adjust="'+key+'">'+options.map(([value,label])=>'<option value="'+value+'" '+(l.adjustments[key]===value?"selected":"")+'>'+label+'</option>').join("")+'</select></label>').join("")+'</div></section>':"";
  const buttons=l.complete?'<button class="btn" id="live-return">Return to Game Day</button>':l.breakType?'<button class="btn" id="live-continue">Continue '+(l.breakType==="halftime"?"Second Half":"Next Quarter")+'</button>':'<button class="btn secondary" id="live-pause">'+(l.paused?"Resume":"Pause")+'</button>';
- const html='<section class="panel"><h2>WFF Live Game • CPU vs CPU</h2><div class="grid"><div class="stat"><small>'+esc(teamLabel(l.us))+'</small><b>'+l.score[0]+'</b></div><div class="stat"><small>Q'+c.quarter+' • '+wffClockTime(c.remaining)+'</small><b>'+l.score[1]+'</b><small>'+esc(teamLabel(l.opp))+'</small></div><div class="stat"><small>Play clock</small><b>'+c.playClock+'s</b><small>Timeouts '+c.timeouts.join(' / ')+'</small></div></div><p>'+esc((l.possession===0?l.us.city:l.opp.city))+' ball • '+l.down+'&'+l.toGo+' • Yard '+l.field+'</p><div class="toolbar"><label>Viewing speed <select id="live-speed">'+[["slow","Slow • 6–9 sec"],["medium","Medium • 3–5 sec"],["fast","Fast • 2 sec"]].map(([key,label])=>'<option value="'+key+'" '+(l.speed===key?"selected":"")+'>'+label+'</option>').join("")+'</select></label>'+buttons+'</div><p class="muted">Timing and scores are simulated. Viewing speed never changes the game model.</p></section>'+wffAudio.controls()+adjustment+'<section class="panel"><h2>Game Statistics</h2><div class="grid">'+stats+'</div></section>'+wffPenaltySummary(l)+'<section class="panel"><h2>Scores Around the League</h2><p class="muted">Simulated scheduled league results for Week '+l.state.week+'; other games are generated deterministically and recorded after your game finishes.</p>'+ticker+'</section><section class="panel"><h2>Play-by-Play</h2>'+l.events.slice(0,display).map(x=>'<div class="line"><span>Q'+x.q+' '+x.time+' • '+esc(x.message)+'</span></div>').join("")+'</section>';
+ const html='<section class="panel"><h2>WFF Live Game • CPU vs CPU</h2><div class="grid"><div class="stat"><small>'+esc(teamLabel(l.us))+'</small><b>'+l.score[0]+'</b></div><div class="stat"><small>Q'+c.quarter+' • '+wffClockTime(c.remaining)+'</small><b>'+l.score[1]+'</b><small>'+esc(teamLabel(l.opp))+'</small></div><div class="stat"><small>Play clock</small><b>'+c.playClock+'s</b><small>Timeouts '+c.timeouts.join(' / ')+'</small></div></div><p>'+esc((l.possession===0?l.us.city:l.opp.city))+' ball • '+l.down+'&'+l.toGo+' • Yard '+l.field+'</p><div class="toolbar"><label>Viewing speed <select id="live-speed">'+[["slow","Slow • 6–9 sec"],["medium","Medium • 3–5 sec"],["fast","Fast • 2 sec"]].map(([key,label])=>'<option value="'+key+'" '+(l.speed===key?"selected":"")+'>'+label+'</option>').join("")+'</select></label>'+buttons+'</div><p class="muted">Timing and scores are simulated. Viewing speed never changes the game model.</p></section>'+wffAudio.controls()+adjustment+'<section class="panel"><h2>Game Statistics</h2><div class="grid">'+stats+'</div></section>'+wffPenaltySummary(l)+wffTurnoverView(l)+'<section class="panel"><h2>Scores Around the League</h2><p class="muted">Simulated scheduled league results for Week '+l.state.week+'; other games are generated deterministically and recorded after your game finishes.</p>'+ticker+'</section><section class="panel"><h2>Play-by-Play</h2>'+l.events.slice(0,display).map(x=>'<div class="line"><span>Q'+x.q+' '+x.time+' • '+esc(x.message)+'</span></div>').join("")+'</section>';
  const v=document.getElementById("view");if(!v)return;v.innerHTML=html;wffAudio.bind();
  document.getElementById("live-speed").onchange=e=>{l.speed=e.target.value;wffLiveRender();wffLiveSchedule()};
  const pause=document.getElementById("live-pause");if(pause)pause.onclick=()=>{l.paused=!l.paused;if(l.paused)wffBroadcast.stop();wffLiveRender();wffLiveSchedule()};
