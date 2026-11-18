@@ -13,7 +13,7 @@ DT:[72,78,275,365,["Nose Tackle","Gap Penetrator","Power Rusher","Run Stopper"],
 LB:[71,77,215,265,["Field General","Run Stopper","Coverage Linebacker","Blitzer"],["tackling","blockShedding","pursuit","zoneCoverage","manCoverage","playRecognition"]],
 CB:[68,76,175,220,["Man Cover","Zone Cover","Press Corner","Ball Hawk"],["manCoverage","zoneCoverage","press","playRecognition","catching","tackling"]],
 S:[70,77,190,235,["Deep Safety","Box Safety","Hybrid Safety","Ball Hawk"],["zoneCoverage","manCoverage","tackling","pursuit","playRecognition","hitPower"]],
-K:[69,77,175,235,["Power Kicker","Accurate Kicker"],["kickPower","kickAccuracy"]],
+K:[69,77,175,235,["Power Kicker","Precision Kicker","Balanced Kicker","Developmental Kicker"],["kickPower","kickAccuracy"]],
 P:[69,77,175,235,["Directional Punter","Power Punter"],["kickPower","kickAccuracy"]]
 };
 const DNA_COMMON=["speed","acceleration","agility","strength","stamina","awareness","injuryResistance"];
@@ -38,6 +38,7 @@ if(group==="DT"){score["Nose Tackle"]=a.anchor+a.strength+a.blockShedding+(weigh
 if(group==="LB"){score["Field General"]=a.playRecognition+a.awareness+a.tackling;score["Run Stopper"]=a.blockShedding+a.tackling+a.pursuit;score["Coverage Linebacker"]=a.zoneCoverage+a.manCoverage+a.speed;score["Blitzer"]=a.acceleration+a.pursuit+a.blockShedding}
 if(group==="CB"){score["Man Cover"]=a.manCoverage+a.press+a.agility;score["Zone Cover"]=a.zoneCoverage+a.playRecognition+a.awareness;score["Press Corner"]=a.press+a.strength+a.manCoverage;score["Ball Hawk"]=a.catching+a.zoneCoverage+a.playRecognition}
 if(group==="S"){score["Deep Safety"]=a.zoneCoverage+a.speed+a.playRecognition;score["Box Safety"]=a.tackling+a.hitPower+a.strength;score["Hybrid Safety"]=a.manCoverage+a.zoneCoverage+a.tackling;score["Ball Hawk"]=a.catching+a.zoneCoverage+a.playRecognition}
+if(group==="K")return ratings.kickPower>=87&&ratings.kickAccuracy<84?"Power Kicker":ratings.kickAccuracy>=87&&ratings.kickPower<81?"Precision Kicker":ratings.kickPower<80&&ratings.kickAccuracy<80?"Developmental Kicker":"Balanced Kicker";
 if(group==="K"||group==="P"){score[group==="K"?"Power Kicker":"Power Punter"]=a.kickPower*2+a.strength;score[group==="K"?"Accurate Kicker":"Directional Punter"]=a.kickAccuracy*2+a.awareness}
 return Object.entries(score).sort((x,y)=>y[1]-x[1])[0][0];
 }
@@ -56,6 +57,7 @@ ratings.agility=dnaClamp(ratings.speed+(r()-.5)*15);
 // A minority of quarterbacks are genuine runners; speed must support that label.
 if(group==="QB"){const runner=r()<.22;ratings.speed=dnaClamp((runner?78:61)+r()* (runner?17:18));ratings.acceleration=dnaClamp(ratings.speed-4+r()*10);ratings.agility=dnaClamp(ratings.speed-6+r()*11);if(height>=77&&weight<=210){ratings.speed=Math.min(ratings.speed,82);ratings.acceleration=Math.min(ratings.acceleration,82)}}
 // Compact backs may be powerful, but larger backs tend to have a strength advantage.
+if(group==="K"){const type=Math.floor(r()*4);const profiles=[["Power Kicker",90,70],["Precision Kicker",73,91],["Balanced Kicker",82,82],["Developmental Kicker",76,72]];const [label,power,accuracy]=profiles[type];ratings.kickPower=dnaClamp(power+(r()-.5)*13,55,99);ratings.kickAccuracy=dnaClamp(accuracy+(r()-.5)*15,48,99);ratings.awareness=dnaClamp((accuracy+base)/2+(r()-.5)*12);player.kickerStyle=label;}
 if(group==="HB"){ratings.strength=dnaClamp(60+(weight-185)*.43+(r()-.5)*17);ratings.breakTackle=dnaClamp(base+(weight-205)*.25+(r()-.5)*21)}
 
 ratings.stamina=dnaClamp(66+r()*30);
@@ -91,9 +93,9 @@ if(mentality.adaptability>80&&mentality.discipline>68)behavior.push("Adaptive");
 if(mentality.composure>82&&mentality.discipline>75)behavior.push("Steady Hand");
 const tech=DNA_TECHNIQUES[group],technique=tech[Math.floor(r()*tech.length)];
 const skillKeys=p[5],overall=dnaClamp(skillKeys.reduce((sum,k)=>sum+ratings[k],0)/skillKeys.length*.78+ratings.awareness*.12+ratings.stamina*.10,45,99);
-return {...player,overall,height,weight,build:weight>(p[2]+(p[3]-p[2])*.67)?"Heavyset":weight<(p[2]+(p[3]-p[2])*.33)?"Lean":"Athletic",archetype,ageProfile,ratings,mentality,behavior,techniques:[{name:technique,status:ratings[skillKeys[0]]>=80?"Developing":"Potential"}],dnaVersion:4};
+return {...player,overall,height,weight,build:weight>(p[2]+(p[3]-p[2])*.67)?"Heavyset":weight<(p[2]+(p[3]-p[2])*.33)?"Lean":"Athletic",archetype,ageProfile,ratings,mentality,behavior,techniques:[{name:technique,status:ratings[skillKeys[0]]>=80?"Developing":"Potential"}],dnaVersion:5};
 }
 function dnaFormatHeight(inches){return Math.floor(inches/12)+"'"+inches%12+'"'}
 function dnaLabel(key){return key.replace(/([A-Z])/g," $1").replace(/^./,c=>c.toUpperCase())}
-function dnaEnsure(state){let changed=false;for(const [key,ps] of [["roster",false],["practiceSquad",true]]){if(!Array.isArray(state[key]))continue;state[key]=state[key].map((p,i)=>{if(p.dnaVersion===4&&p.ratings&&p.mentality)return p;changed=true;return dnaBuild(p,state.teamId,i,ps)})}return changed}
+function dnaEnsure(state){let changed=false;for(const [key,ps] of [["roster",false],["practiceSquad",true]]){if(!Array.isArray(state[key]))continue;state[key]=state[key].map((p,i)=>{if(p.dnaVersion===5&&p.ratings&&p.mentality)return p;changed=true;return dnaBuild(p,state.teamId,i,ps)})}return changed}
 function dnaPlayerCard(p,i,ps){const rid=(ps?"ps":"a")+i;return '<details class="player"><summary><span><strong>'+esc(p.position)+'</strong> '+esc(p.name)+' <small>'+esc(p.archetype)+' • '+dnaFormatHeight(p.height)+' • '+p.weight+' lb</small></span><strong>'+p.overall+' OVR</strong></summary><div class="player-info"><p>Age '+p.age+' • '+esc(p.build)+' build • '+esc(p.archetype)+'</p><h3>Football & physical ratings</h3><div class="dna-grid">'+Object.entries(p.ratings).map(([k,v])=>'<div><span>'+dnaLabel(k)+'</span><b>'+v+'</b></div>').join("")+'</div><h3>Mentality (scouting estimate)</h3><div class="dna-grid">'+Object.entries(p.mentality).map(([k,v])=>'<div><span>'+dnaLabel(k)+'</span><b>'+v+'</b></div>').join("")+'</div><p><strong>Observed tendencies:</strong> '+(p.behavior.length?p.behavior.map(esc).join(", "):"No prominent tendencies identified")+'</p><p><strong>Technique:</strong> '+p.techniques.map(t=>esc(t.name)+' ('+esc(t.status)+')').join(", ")+'</p><p class="muted">Ratings and tendencies are generated prototypes. Scouting uncertainty, trait unlocks, and on-field effects are not yet implemented.</p></div></details>'}
