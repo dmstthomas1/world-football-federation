@@ -27,7 +27,7 @@ function dnaRandom(seed){let x=seed>>>0;return()=>{x=(Math.imul(1664525,x)+10139
 function dnaClamp(v,a=35,b=99){return Math.max(a,Math.min(b,Math.round(v)))}
 function dnaArchetype(group,ratings,height,weight){
 const a=ratings,score={};
-if(group==="QB"){score["Pocket Passer"]=a.pocketPresence*1.2+a.mediumAccuracy+a.shortAccuracy;score["Field General"]=a.awareness*1.3+a.pocketPresence+a.shortAccuracy;score["Improviser"]=a.throwOnRun*1.2+a.agility+a.acceleration;score["Dual Threat"]=a.speed*1.4+a.acceleration*1.1+a.throwOnRun;if(a.speed<78||a.acceleration<77||a.agility<72)score["Dual Threat"]=-1e3}
+if(group==="QB"){score["Pocket Passer"]=a.pocketPresence*1.2+a.mediumAccuracy+a.shortAccuracy;score["Field General"]=a.awareness*1.3+a.pocketPresence+a.shortAccuracy;score["Improviser"]=a.throwOnRun*1.2+a.agility+a.acceleration;score["Dual Threat"]=a.speed*1.4+a.acceleration*1.1+a.throwOnRun;if(a.speed<78||a.acceleration<77||a.agility<72||(height>=77&&weight<=210))score["Dual Threat"]=-1e3}
 if(group==="HB"){score["Power Back"]=a.strength*1.4+a.breakTackle*1.3+(weight-195)*.7;score["Elusive Back"]=a.elusiveness*1.5+a.agility+a.acceleration;score["Receiving Back"]=a.catching*1.6+a.elusiveness+a.passProtection;score["One-Cut Runner"]=a.vision*1.5+a.acceleration+a.carrying}
 if(group==="FB"){score["Lead Blocker"]=a.leadBlock*1.5+a.impactBlock+a.strength;score["Power Fullback"]=a.carrying+a.strength*1.4+a.impactBlock;score["Versatile Fullback"]=a.catching+a.runBlock+a.carrying}
 if(group==="WR"){score["Deep Threat"]=a.speed*1.4+a.acceleration+a.deepRoute;score["Route Technician"]=a.shortRoute+a.mediumRoute+a.release;score["Possession Receiver"]=a.catching+a.catchInTraffic+a.strength;score["Slot Specialist"]=a.agility+a.shortRoute+a.release}
