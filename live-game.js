@@ -48,8 +48,8 @@ function wffLiveStep(){
  c.timeouts[0]--;c.running=false;wffLiveEvent(l.us.city+" uses a timeout. "+c.timeouts[0]+" remaining.",true)}
  if(l.down===4){
  const decision=wffCoachFourthCall({yard:l.field,toGo:l.toGo,quarter:c.quarter,seconds:c.remaining,lead,timeouts:c.timeouts[side],aggression:profile.aggression,judgment:profile.judgment,seed:l.state.week+"-"+l.playCount+"-"+side,wind:l.weather.wind,weather:l.weather.condition});
- if(decision.call==="punt"){wffLiveEvent((side===0?l.us.city:l.opp.city)+" punts on fourth down.");wffClockSnap(c,"run",{duration:7});wffLiveChangePossession();wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
- if(decision.call==="field_goal"){const made=l.r()<decision.kick.probability;l.stats[side].plays++;l.playCount++;wffClockSnap(c,"run",{duration:5});if(made)l.score[side]+=3;wffLiveEvent((side===0?l.us.city:l.opp.city)+" "+(made?"makes":"misses")+" a "+Math.round(decision.kick.distance)+"-yard field goal.",true);wffLiveChangePossession();wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
+ const kicker=wffKickerForTeam(l.state,side===0?l.us.id:l.opp.id);const kick=wffKickDecision(kicker,l.field,{...l.weather,endHalf:(c.quarter===2||c.quarter===4)&&c.remaining<=12});if(decision.call==="field_goal"&&!kick.advisable)decision.call=(l.field>=50&&l.toGo<=3)?"go":"punt";if(decision.call==="punt"){wffLiveEvent((side===0?l.us.city:l.opp.city)+" punts on fourth down.");wffClockSnap(c,"run",{duration:7});wffLiveChangePossession();wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
+ if(decision.call==="field_goal"){const made=l.r()<kick.probability;l.stats[side].plays++;l.playCount++;wffClockSnap(c,"run",{duration:5});if(made)l.score[side]+=3;wffLiveEvent((side===0?l.us.city:l.opp.city)+" "+(made?"makes":"misses")+" a "+Math.round(kick.distance)+"-yard field goal by "+kicker.name+" ("+kicker.archetype+").",true);wffLiveChangePossession();wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
  wffLiveEvent((side===0?l.us.city:l.opp.city)+" goes for it on fourth and "+l.toGo+".",true);
  }
  const kneel=policy==="kneel";const offense=l.adjustments.offense,tempo=l.adjustments.tempo;
