@@ -1,7 +1,7 @@
 "use strict";
 // League-wide deterministic box-score simulation for fictional WFF fixtures.
 // Stats are modeled, not derived from the detailed live play-by-play.
-const WFF_STAT_FIELDS=["passAtt","passComp","passYds","passTd","int","rushAtt","rushYds","rushTd","rec","recYds","recTd","tackles","sacks","defInt","forcedFumbles","fgm","fga","punts"];
+const WFF_STAT_FIELDS=["passAtt","passComp","passYds","passTd","int","rushAtt","rushYds","rushTd","rec","recYds","recTd","tackles","sacks","defInt","forcedFumbles","fgm","fga","punts","targets","fumbles","fumblesLost","tacklesForLoss","soloTackles","assistedTackles","passesDefended","fumbleRecoveries","defensiveTd","intReturnYds","fumbleReturnYds","safeties","kickReturnAtt","kickReturnYds","kickReturnTd","puntReturnAtt","puntReturnYds","puntReturnTd","puntsYds","puntsInside20","extraPointsMade","extraPointsAtt"];
 // Derived rate statistics are calculated from raw totals, never averaged across games.
 function wffPlayerMetric(p,key){
  const n=k=>Number(p[k]||0),ratio=(a,b)=>b?(a/b).toFixed(1):"—";
@@ -19,16 +19,24 @@ function wffPlayerMetric(p,key){
  if(key==="rushAvg")return ratio(n("rushYds"),n("rushAtt"));
  if(key==="recAvg")return ratio(n("recYds"),n("rec"));
  if(key==="catchPct")return p.targets==null?"—":n("targets")?((100*n("rec"))/n("targets")).toFixed(1)+"%":"—";
+ if(key==="yardsPerTarget")return ratio(n("recYds"),n("targets"));
+ if(key==="yardsPerPunt")return ratio(n("puntsYds"),n("punts"));
+ if(key==="kickReturnAvg")return ratio(n("kickReturnYds"),n("kickReturnAtt"));
+ if(key==="puntReturnAvg")return ratio(n("puntReturnYds"),n("puntReturnAtt"));
+ if(key==="xpPct")return n("extraPointsAtt")?((100*n("extraPointsMade"))/n("extraPointsAtt")).toFixed(1)+"%":"—";
  if(key==="fgPct")return n("fga")?((100*n("fgm"))/n("fga")).toFixed(1)+"%":"—";
  if(key==="tacklesPerGame")return p.gamesPlayed?ratio(n("tackles"),n("gamesPlayed")):"—";
  return p[key]??0;
 }
 const WFF_PLAYER_STAT_SECTIONS=[
  ["Passing",p=>p.passAtt>0,[["CMP","passComp"],["ATT","passAtt"],["CMP%","completionPct"],["YDS","passYds"],["Y/A","passYpa"],["Y/C","passYpc"],["TD","passTd"],["INT","int"],["RATE","passerRating"]]],
- ["Rushing",p=>p.rushAtt>0,[["ATT","rushAtt"],["YDS","rushYds"],["AVG","rushAvg"],["TD","rushTd"]]],
- ["Receiving",p=>p.rec>0,[["REC","rec"],["YDS","recYds"],["AVG","recAvg"],["TD","recTd"]]],
- ["Defense",p=>(p.tackles||0)+(p.sacks||0)+(p.defInt||0)+(p.forcedFumbles||0)>0,[["TKL","tackles"],["SACK","sacks"],["INT","defInt"],["FF","forcedFumbles"]]],
- ["Kicking & Punting",p=>(p.fga||0)+(p.punts||0)>0,[["FGM","fgm"],["FGA","fga"],["FG%","fgPct"],["PUNTS","punts"]]]
+ ["Rushing",p=>p.rushAtt>0,[["ATT","rushAtt"],["YDS","rushYds"],["AVG","rushAvg"],["TD","rushTd"],["FUM","fumbles"],["LOST","fumblesLost"]]],
+ ["Receiving",p=>p.targets>0||p.rec>0,[["TGT","targets"],["REC","rec"],["CATCH%","catchPct"],["YDS","recYds"],["AVG","recAvg"],["Y/TGT","yardsPerTarget"],["TD","recTd"]]],
+ ["Defense",p=>(p.tackles||0)+(p.sacks||0)+(p.defInt||0)+(p.forcedFumbles||0)+(p.passesDefended||0)>0,[["TKL","tackles"],["SOLO","soloTackles"],["AST","assistedTackles"],["TFL","tacklesForLoss"],["SACK","sacks"],["PD","passesDefended"],["INT","defInt"],["INT YDS","intReturnYds"],["FF","forcedFumbles"],["FR","fumbleRecoveries"],["FR YDS","fumbleReturnYds"],["TD","defensiveTd"],["SFTY","safeties"]]],
+ ["Kicking",p=>(p.fga||0)+(p.extraPointsAtt||0)>0,[["FGM","fgm"],["FGA","fga"],["FG%","fgPct"],["XPM","extraPointsMade"],["XPA","extraPointsAtt"],["XP%","xpPct"]]],
+ ["Punting",p=>(p.punts||0)>0,[["PUNTS","punts"],["YDS","puntsYds"],["AVG","yardsPerPunt"],["IN20","puntsInside20"]]],
+ ["Kick Returns",p=>(p.kickReturnAtt||0)>0,[["RET","kickReturnAtt"],["YDS","kickReturnYds"],["AVG","kickReturnAvg"],["TD","kickReturnTd"]]],
+ ["Punt Returns",p=>(p.puntReturnAtt||0)>0,[["RET","puntReturnAtt"],["YDS","puntReturnYds"],["AVG","puntReturnAvg"],["TD","puntReturnTd"]]]
 ];
 const WFF_HOMETOWNS=["Cedar Falls","Lakewood","Riverton","Westhaven","Pine Ridge","Brookfield","Stonebridge","Fairview","Ashford","Northfield"];
 const WFF_COLLEGES=["North Valley University","Coastal State","Redwood Tech","Great Lakes College","Prairie State","Summit University","Atlantic Polytechnic","Western Ridge","Central Plains University","Lakeshore State"];
@@ -109,12 +117,24 @@ function wffSimBox(state,g){
    const last=i===backs.length-1,att=last?remaining:Math.min(remaining,i===0?Math.round(rushes*(.56+r()*.24)):Math.floor(r()*6)),yd=last?rushRemaining:Math.min(rushRemaining,Math.round(att*(3+r()*3))),td=last?rushScores:Math.min(rushScores,Math.floor(r()*2));
    wffStatAdd(players,backs[i],teamId,"rushAtt",att,g.week);wffStatAdd(players,backs[i],teamId,"rushYds",yd,g.week);wffStatAdd(players,backs[i],teamId,"rushTd",td,g.week);remaining-=att;rushRemaining-=yd;rushScores-=td;
   }
-  for(let i=0;i<45;i++){const d=wffStatPick(defenders,r);wffStatAdd(players,d,teamId,"tackles",1,g.week)}
+  // Allocate receiver targets consistently with QB attempts and completions.
+  const passTargets=Object.values(players).filter(p=>p.teamId===teamId&&p.rec>0);
+  let missedTargets=Math.max(0,attempts-completions);
+  for(const p of passTargets)p.targets=p.rec;
+  for(let i=0;i<missedTargets&&passTargets.length;i++)passTargets[Math.floor(r()*passTargets.length)].targets++;
+  // Defensive attribution remains modeled until the live engine tracks individual tackles.
+  for(let i=0;i<45;i++){const d=wffStatPick(defenders,r);if(!d)continue;wffStatAdd(players,d,teamId,"tackles",1,g.week);wffStatAdd(players,d,teamId,r()<.68?"soloTackles":"assistedTackles",1,g.week)}
+  for(let i=0;i<Math.floor(r()*8);i++)wffStatAdd(players,wffStatPick(defenders,r),teamId,"tacklesForLoss",1,g.week);
+  for(let i=0;i<Math.floor(r()*9);i++)wffStatAdd(players,wffStatPick([...group("CB"),...group("S"),...group("LB")],r),teamId,"passesDefended",1,g.week);
+  // Never invent defensive touchdowns or return yardage: those require actual live events.
+
   for(let i=0;i<Math.floor(r()*5);i++)wffStatAdd(players,wffStatPick([...group("EDGE"),...group("DT"),...group("LB")],r),teamId,"sacks",1,g.week);
   for(let i=0;i<Math.floor(r()*3);i++)wffStatAdd(players,wffStatPick([...group("CB"),...group("S")],r),teamId,"defInt",1,g.week);
   const fg=Math.max(0,Math.min(5,Math.round((points-7*touchdowns)/3)));
   wffStatAdd(players,k,teamId,"fgm",fg,g.week);wffStatAdd(players,k,teamId,"fga",fg+Math.floor(r()*2),g.week);
-  wffStatAdd(players,p,teamId,"punts",2+Math.floor(r()*5),g.week);
+  const puntCount=2+Math.floor(r()*5);wffStatAdd(players,p,teamId,"punts",puntCount,g.week);
+  wffStatAdd(players,p,teamId,"puntsYds",Math.round(puntCount*(38+r()*12)),g.week);
+  wffStatAdd(players,p,teamId,"puntsInside20",Math.floor(r()*(puntCount+1)),g.week);
  }
  return Object.values(players);
 }
