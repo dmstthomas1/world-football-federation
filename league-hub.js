@@ -14,7 +14,7 @@ function wffLeagueRankings(state,mode){
  return rows;
 }
 function wffLeagueStatsView(state){
- const played=Object.keys(state.leagueResults||{}).length;
+ wffEnsureLeagueBoxScores(state);const played=Object.keys(state.leagueResults||{}).length;
  let html='<section class="panel"><h2>League Rankings & Statistics</h2><p class="muted">Rankings update after completed weeks. Offensive and defensive rankings currently use points scored and points allowed per game. Full yardage, rushing, passing and individual statistical leaders require league-wide play-by-play tracking.</p><p>'+played+' of 272 regular-season games recorded.</p></section>';
  for(const [mode,label,metric] of [["record","Overall standings","Record"],["offense","Offensive rankings","Points per game"],["defense","Defensive rankings","Points allowed per game"]]){
   const rows=wffLeagueRankings(state,mode);
@@ -24,6 +24,14 @@ function wffLeagueStatsView(state){
   html+='</section>';
  }
  html+='<section class="panel"><h2>Individual Player Statistics</h2><p class="muted">The current live simulator does not yet save complete individual passing, rushing, receiving, tackling and turnover box scores. Player leaderboards will appear here when those events are attributed and saved. No fictional individual totals are shown as facts.</p></section>';
+ const categories=[["Passing Yards","passYds"],["Passing TDs","passTd"],["Rushing Yards","rushYds"],["Receiving Yards","recYds"],["Receiving TDs","recTd"],["Tackles","tackles"],["Sacks","sacks"],["Defensive Interceptions","defInt"],["Field Goals Made","fgm"]];
+ const players=wffSeasonPlayers(state);
+ for(const [label,key] of categories){
+  const leaders=players.filter(p=>p[key]>0).sort((a,b)=>b[key]-a[key]).slice(0,12);
+  html+='<section class="panel"><h2>'+label+' — Player Leaders</h2><p class="muted">Modeled estimates from completed games</p>';
+  for(const [i,p] of leaders.entries())html+='<div class="line"><span>'+(i+1)+'. '+esc(p.name)+' ('+esc(p.position)+') • '+wffLogo(teams[p.teamId],24)+' '+esc(teamLabel(teams[p.teamId]))+'</span><strong>'+p[key]+'</strong></div>';
+  html+='</section>';
+ }
  return html;
 }
 function wffLeagueUpcoming(state){
@@ -54,15 +62,15 @@ const WFF_SEASON_AWARDS=[
 ];
 const WFF_WEEKLY_AWARDS=[["offense","Offensive Player of the Week"],["defense","Defensive Player of the Week"],["special","Special Teams Player of the Week"]];
 function wffAwardDisplay(a){
- if(!a||!a.playerName)return '<span class="muted">Awaiting verified individual performances</span>';
+ if(!a||!a.playerName)return '<span class="muted">Pending modeled statistics</span>';
  const team=teams[a.teamId];
  return '<span>'+esc(a.playerName)+(team?' • '+wffLogo(team,24)+' '+esc(teamLabel(team)):'')+'</span>';
 }
 function wffLeagueAwardsView(state){
  const year=state.finance?.year||state.leagueSchedule?.year||2026;
  const completed=Math.min(18,Math.max(0,(state.week||1)-1));
- const archive=state.awardHistory||{},seasonAwards=archive[year]?.season||{},weekly=archive[year]?.weekly||{};
- let html='<section class="panel"><h2>WFF Honors & Awards — '+year+'</h2><p class="muted">Awards are reserved for statistically supported performances. Winners will not be fabricated from overall ratings or arbitrary draws. The simulator still needs complete individual statistics across the league before these awards can be awarded automatically.</p></section>';
+ wffComputeAwards(state);const archive=state.awardHistory||{},seasonAwards=archive[year]?.season||{},weekly=archive[year]?.weekly||{};
+ let html='<section class="panel"><h2>WFF Honors & Awards — '+year+'</h2><p class="muted">Awards are reserved for statistically supported performances. Winners will not be fabricated from overall ratings or arbitrary draws. Award selections use modeled box scores and are provisional until full play-by-play tracking is available.</p></section>';
  html+='<section class="panel"><h2>Season Awards</h2>';
  for(const [id,title,scope] of WFF_SEASON_AWARDS)html+='<div class="line"><span><strong>'+esc(title)+'</strong><small class="muted"> • '+esc(scope==="league"?"League-wide":scope+" Conference")+'</small></span>'+wffAwardDisplay(seasonAwards[id])+'</div>';
  html+='</section><section class="panel"><h2>Weekly Conference Honors</h2>';
