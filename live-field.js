@@ -138,13 +138,39 @@ function wffFieldView(l){
   const minDepth=62-ballX+9;
   formations.forEach(p=>{p[0]=Math.max(minDepth,p[0])});
  }
- const dot=(px,py,color,outline,label,animate)=>{
+ // Choreographed broadcast motion is illustrative; game engine outcomes remain authoritative.
+ const message=l.events[0]?.message||"";
+ const snapType=l.specialTeams?(l.specialTeams.type==="punt"?"punt":"kickoff"):
+   /SACKED/i.test(message)?"sack":/intercepted/i.test(message)?"interception":
+   /field goal/i.test(message)?"fieldgoal":/incomplete|broken up/i.test(message)?"incomplete":
+   /pass|throws|completes/i.test(message)?"pass":/kneel/i.test(message)?"kneel":"run";
+ const gainMatch=message.match(/(?:gain(?:s|ed)?|for)\\s+(-?\\d+)\\s+yards?/i);
+ const gain=gainMatch?Number(gainMatch[1]):0;
+ const distance=Math.max(-65,Math.min(180,gain*7.04));
+ const animationDuration=Math.max(1.1,Math.min(4.8,(WFF_LIVE_SPEED?.[l.speed]||4000)/1000*.72));
+ const dot=(px,py,color,outline,label,dx,dy,delay)=>{
   const cx=Math.max(62,Math.min(918,px)),cy=Math.max(43,Math.min(377,py));
-  return '<g class="'+(animate?'wff-field-motion':'')+'" style="--dx:'+animate+'px"><circle cx="'+cx+'" cy="'+cy+'" r="7.2" fill="'+color+'" stroke="'+outline+'" stroke-width="1.6"/><text x="'+cx+'" y="'+(cy+2.6)+'" fill="#fff" text-anchor="middle" font-family="system-ui" font-size="6.3" font-weight="800">'+label+'</text></g>';
+  const mx=Math.max(62,Math.min(918,cx+dx))-cx,my=Math.max(43,Math.min(377,cy+dy))-cy;
+  return '<g class="wff-play-actor" style="--move-x:'+mx+'px;--move-y:'+my+'px;--play-delay:'+delay+'s;--play-duration:'+animationDuration+'s"><circle cx="'+cx+'" cy="'+cy+'" r="7.2" fill="'+color+'" stroke="'+outline+'" stroke-width="1.6"/><text x="'+cx+'" y="'+(cy+2.6)+'" fill="#fff" text-anchor="middle" font-family="system-ui" font-size="6.3" font-weight="800">'+label+'</text></g>';
  };
- formations.forEach(([dx,dy],i)=>players.push(dot(ballX+dx,210+dy,oc[0],oc[1],offensiveLabels[i]||"O",i===5&&isPass?-10:0)));
- defenders.forEach(([dx,dy],i)=>players.push(dot(ballX+dx,210+dy,dc[0],dc[1],defensiveLabels[i],isRun&&i<frontCount?-8:0)));
- const ballEnd=isPass?Math.min(920,ballX+95):Math.min(920,ballX+30);
- const ball='<g class="wff-ball-motion" style="--ball-x:'+(ballEnd-ballX)+'px"><ellipse cx="'+ballX+'" cy="210" rx="9" ry="5" fill="#7d4524" stroke="#fff" stroke-width="1.4"/><path d="M'+(ballX-4)+' 210h8" stroke="#fff" stroke-width="1.5"/></g>';
+ formations.forEach(([dx,dy],i)=>{
+  const line=i<5,quarterback=i===5,runner=i===6;
+  let mx=0,my=0;
+  if(line){mx=snapType==="pass"||snapType==="incomplete"||snapType==="interception"?-10:13;my=(i-2)*2}
+  else if(quarterback){mx=snapType==="run"?12:snapType==="kneel"?-3:-24}
+  else if(runner){mx=snapType==="run"?Math.max(28,distance):snapType==="kneel"?0:12;my=snapType==="run"?-18:8}
+  else{mx=snapType==="run"?12:Math.min(110,55+(i%3)*17);my=(i%2?-1:1)*(15+(i%4)*13)}
+  players.push(dot(ballX+dx,210+dy,oc[0],oc[1],offensiveLabels[i]||"O",mx,my,line?0:.12));
+ });
+ defenders.forEach(([dx,dy],i)=>{
+  const front=i<frontCount,back=i>=frontCount+lbCount;
+  let mx=front?-22:back?-35:-32,my=front?(i%2?5:-5):(i%2?16:-16);
+  if(snapType==="pass"||snapType==="incomplete"||snapType==="interception"){mx=front?-31:back?4:-12;my=back?(i%2?22:-22):my}
+  if(snapType==="sack")mx=front?-40:-18;
+  if(snapType==="run"){mx=front?-16:back?-32:-27;my=(i%2?1:-1)*(front?6:20)}
+  players.push(dot(ballX+dx,210+dy,dc[0],dc[1],defensiveLabels[i],mx,my,.18));
+ });
+ const ballTravel=snapType==="run"?Math.max(25,distance):snapType==="pass"||snapType==="incomplete"||snapType==="interception"?Math.min(150,Math.max(65,distance)):snapType==="punt"||snapType==="kickoff"?170:0;
+ const ball='<g class="wff-play-ball" style="--move-x:'+ballTravel+'px;--move-y:'+(snapType==="pass"?-45:0)+'px;--play-duration:'+animationDuration+'s"><ellipse cx="'+ballX+'" cy="210" rx="9" ry="5" fill="#7d4524" stroke="#fff" stroke-width="1.4"/><path d="M'+(ballX-4)+' 210h8" stroke="#fff" stroke-width="1.5"/></g>';
  return '<section class="panel wff-field-panel"><h2>Live Field • '+esc(teamLabel(off))+' on offense</h2><p><strong>'+esc(packageInfo.formation+' '+variant)+' • '+esc(packageInfo.personnel)+' personnel</strong> vs <strong>'+esc(packageInfo.defense)+' defense</strong></p>'+scoreboard+'<div class="wff-field-wrap">'+highlightMarkup+kickOverlay+'<svg viewBox="0 0 980 420" role="img" aria-label="2D football field with player formations, ball at yard '+yard+' and first down at yard '+first+'" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="980" height="420" rx="14" fill="#102b21"/><rect x="50" y="30" width="880" height="360" fill="#246d43"/><rect x="50" y="30" width="88" height="360" fill="'+oc[1]+'" opacity=".7"/><rect x="842" y="30" width="88" height="360" fill="'+dc[1]+'" opacity=".7"/>'+markers+'<line x1="50" y1="30" x2="930" y2="30" stroke="#fff" stroke-width="4"/><line x1="50" y1="390" x2="930" y2="390" stroke="#fff" stroke-width="4"/><line x1="'+ballX+'" y1="30" x2="'+ballX+'" y2="390" stroke="#53baff" stroke-width="3"/><line x1="'+firstX+'" y1="30" x2="'+firstX+'" y2="390" stroke="#ffd04d" stroke-width="4" stroke-dasharray="12 7"/>'+players.join("")+ball+'<text x="94" y="210" transform="rotate(-90 94 210)" font-size="14" font-weight="900" text-anchor="middle" fill="#fff">'+esc(teamLabel(l.matchup?.home===l.us.id?l.us:l.opp))+'</text><text x="887" y="210" transform="rotate(90 887 210)" font-size="14" font-weight="900" text-anchor="middle" fill="#fff">'+esc(teamLabel(l.matchup?.away===l.us.id?l.us:l.opp))+'</text></svg></div><div class="wff-field-key"><span><i style="background:'+oc[0]+'"></i> '+esc(off.city)+' offense</span><span><i style="background:'+dc[0]+'"></i> '+esc(def.city)+' defense</span><span>🔵 Line of scrimmage</span><span>🟡 First down</span></div><div class="wff-inline-play-feed" aria-live="polite"><h3>Live Play-by-Play</h3>'+l.events.slice(0,10).map((event,i)=>'<div class="wff-inline-play'+(i===0?' wff-inline-play-latest':'')+'"><span class="wff-inline-play-time">Q'+event.q+' '+event.time+'</span><span>'+esc(event.message)+'</span></div>').join('')+'</div></section>';
 }
