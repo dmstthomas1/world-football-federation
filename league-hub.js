@@ -100,3 +100,32 @@ function wffLeagueHubView(state){
  }
  return html+wffLeagueUpcoming(state)+wffLeagueAwardsView(state);
 }
+
+function wffMyTeamStatsView(state){
+ wffScheduleInit(state);wffEnsureLeagueBoxScores(state);
+ const team=teams[state.teamId],games=wffLeagueTeamGames(state,state.teamId),rows=wffLeagueTeamMetrics(state),mine=rows.find(x=>x.id===state.teamId);
+ const offenseRank=wffLeagueRankings(state,"offense").findIndex(x=>x.id===state.teamId)+1;
+ const defenseRank=wffLeagueRankings(state,"defense").findIndex(x=>x.id===state.teamId)+1;
+ const season=wffSeasonPlayers(state).filter(p=>p.teamId===state.teamId);
+ const total=(field)=>season.reduce((n,p)=>n+(p[field]||0),0);
+ const live=(state.games||[]).filter(g=>g.stats&&g.stats[0]).reduce((acc,g)=>{
+  const x=g.stats[0];for(const k of ["plays","pass","rush","yards","firstDowns","turnovers"])acc[k]+=(x[k]||0);return acc;
+ },{plays:0,pass:0,rush:0,yards:0,firstDowns:0,turnovers:0});
+ const metric=(label,value)=>'<div class="stat"><small>'+label+'</small><b>'+value+'</b></div>';
+ let html='<section class="panel"><h2>'+wffLogo(team,40)+' '+esc(teamLabel(team))+' — Season Statistics</h2><p class="muted">Selected franchise • '+(state.finance?.year||2026)+' season • '+games.length+' completed games. Rankings use recorded final scores; individual player totals are modeled estimates.</p><div class="grid">'+metric("Record",mine.w+"–"+mine.l+(mine.t?"–"+mine.t:""))+metric("Points scored",mine.pf)+metric("Points allowed",mine.pa)+metric("Points per game",games.length?mine.ppg.toFixed(1):"—")+metric("Points allowed / game",games.length?mine.allowed.toFixed(1):"—")+metric("Offensive rank (points)",games.length?"#"+offenseRank:"—")+metric("Defensive rank (points allowed)",games.length?"#"+defenseRank:"—")+'</div></section>';
+ html+='<section class="panel"><h2>Recorded Live-Game Team Totals</h2><p class="muted">Aggregated from completed live games for your selected franchise. These are separate from the modeled individual box scores.</p><div class="grid">'+metric("Offensive plays",live.plays)+metric("Pass plays",live.pass)+metric("Rush plays",live.rush)+metric("Total offensive yards",live.yards)+metric("First downs",live.firstDowns)+metric("Turnovers",live.turnovers)+'</div></section>';
+ html+='<section class="panel"><h2>Modeled Player Production</h2><p class="muted">Estimated season totals based on completed game scores, not individually tracked live plays.</p><div class="grid">'+metric("Passing yards",total("passYds"))+metric("Passing TD",total("passTd"))+metric("Rushing yards",total("rushYds"))+metric("Rushing TD",total("rushTd"))+metric("Receiving yards",total("recYds"))+metric("Sacks",total("sacks"))+metric("Defensive INT",total("defInt"))+'</div></section>';
+ for(const [title,filter,fields] of [
+  ["Quarterbacks",p=>p.passAtt>0,[["CMP","passComp"],["ATT","passAtt"],["YDS","passYds"],["TD","passTd"],["INT","int"]]],
+  ["Rushing",p=>p.rushAtt>0,[["ATT","rushAtt"],["YDS","rushYds"],["TD","rushTd"]]],
+  ["Receiving",p=>p.rec>0,[["REC","rec"],["YDS","recYds"],["TD","recTd"]]],
+  ["Defense",p=>p.tackles+p.sacks+p.defInt>0,[["TKL","tackles"],["SACK","sacks"],["INT","defInt"]]]
+ ]){
+  const players=season.filter(filter).sort((a,b)=>b[fields[1][1]]-a[fields[1][1]]);
+  html+='<section class="panel"><h2>'+title+' — '+esc(team.city)+'</h2><div class="wff-stat-table"><table><thead><tr><th>Player</th>'+fields.map(([label])=>'<th>'+label+'</th>').join("")+'</tr></thead><tbody>'+players.map(p=>'<tr><td>'+esc(p.name)+' <small>('+esc(p.position)+')</small></td>'+fields.map(([,key])=>'<td>'+p[key]+'</td>').join("")+'</tr>').join("")+'</tbody></table></div>'+(players.length?'':'<p class="muted">No recorded games yet.</p>')+'</section>';
+ }
+ html+='<section class="panel"><h2>Game-by-Game Results</h2>';
+ if(!games.length)html+='<p class="muted">Your season starts with no statistics. Results will appear after Week 1.</p>';
+ for(const g of games){const home=g.home===state.teamId,our=home?g.homeScore:g.awayScore,their=home?g.awayScore:g.homeScore,opp=teams[home?g.away:g.home];html+='<div class="line"><span>Week '+g.week+' • '+(home?'vs ':'at ')+esc(teamLabel(opp))+'</span><strong>'+(our>their?'W':our<their?'L':'T')+' '+our+'–'+their+'</strong></div>'}
+ return html+'</section>';
+}
