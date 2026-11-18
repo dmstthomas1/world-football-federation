@@ -49,6 +49,33 @@ function wffLiveContinue(){
  }else wffLiveEvent("Quarter "+l.clock.quarter+" begins.",true);
  l.breakType=null;l.paused=false;wffLiveRender();wffLiveSchedule();
 }
+
+// Live sacks are generated from actual offensive dropbacks, not postgame estimates.
+function wffSackRoll(l,side){
+ const offense=wffTurnoverRoster(l,side),defense=wffTurnoverRoster(l,1-side);
+ const group=(p,g)=>dnaGroup(p.position)===g;
+ const score=(p,keys)=>keys.reduce((n,k)=>n+Number(p.ratings?.[k]??p.overall??72),0)/keys.length;
+ const rushers=defense.filter(p=>group(p,"EDGE")||group(p,"DT")||group(p,"LB")).map(p=>({
+  player:p,skill:group(p,"EDGE")?score(p,["finesseMoves","powerMoves","pursuit"]):group(p,"DT")?score(p,["powerMoves","finesseMoves","blockShedding"]):score(p,["blockShedding","pursuit","playRecognition"])-7
+ })).sort((a,b)=>b.skill-a.skill);
+ const line=offense.filter(p=>group(p,"OL")).map(p=>score(p,["passBlock","passBlockPower","passBlockFinesse"])).sort((a,b)=>b-a);
+ const qb=offense.find(p=>group(p,"QB"));
+ const protection=line.length?line.reduce((a,b)=>a+b,0)/line.length:72;
+ const rush=rushers.length?rushers.slice(0,4).reduce((a,b)=>a+b.skill,0)/Math.min(4,rushers.length):72;
+ const edge=rushers.filter(p=>group(p.player,"EDGE")).slice(0,2);
+ const edgeBoost=edge.length?Math.max(0,edge[0].skill-protection)*.002:0;
+ const qbEscape=Number(qb?.ratings?.pocketPresence??qb?.overall??75);
+ const focus=l.plans?.[1-side]?.defense;
+ const blitz=focus==="blitz"||/Blitz|Pressure/i.test(l.calledPlay?.defense?.concept||"");
+ const longDown=l.toGo>=8&&l.down>=3;
+ // Target roughly 5-8% of dropbacks league-wide, with controlled matchup variation.
+ const chance=Math.max(.018,Math.min(.145,.057+(rush-protection)*.003+edgeBoost+(blitz?.012:0)+(longDown?.008:0)-(qbEscape-75)*.0006));
+ if(l.r()>=chance)return null;
+ const candidates=rushers.slice(0,5),weights=candidates.map(p=>Math.max(1,p.skill-50)*(group(p.player,"EDGE")?1.4:1));
+ let roll=l.r()*weights.reduce((a,b)=>a+b,0),winner=candidates[0]?.player;
+ for(let i=0;i<candidates.length;i++){roll-=weights[i];if(roll<=0){winner=candidates[i].player;break}}
+ return {defender:winner,quarterback:qb,yards:2+Math.floor(l.r()*8),chance};
+}
 function wffLiveStep(){
  const l=wffLive;if(!l||l.paused||l.breakType||l.complete)return;
  l.calledPlay=wffCallPlay(l,l.possession);
@@ -87,6 +114,19 @@ function wffLiveStep(){
  const gain=Math.max(-8,rawGain);
  const livePenalty=!kneel?wffPenaltyRoll(l,side,pass,"live"):null;
  if(livePenalty){wffClockSnap(c,pass?"pass_incomplete":"run",{duration:5});l.playCount++;wffLiveEvent(wffPenaltyApply(l,livePenalty),true);c.running=false;wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
+ const sack=pass?wffSackRoll(l,side):null;
+ if(sack){
+  const st=l.stats[side],dst=l.stats[1-side],loss=Math.min(sack.yards,Math.max(0,l.field-1));
+  st.plays++;st.pass++;st.sacksAllowed=(st.sacksAllowed||0)+1;st.sackYardsLost=(st.sackYardsLost||0)+loss;st.yards-=loss;
+  dst.sacks=(dst.sacks||0)+1;dst.sackYards=(dst.sackYards||0)+loss;
+  l.playCount++;wffClockSnap(c,"run",{duration:7});
+  l.field-=loss;l.down++;l.toGo+=loss;
+  if(!l.liveSacks)l.liveSacks=[];
+  l.liveSacks.push({teamId:side===0?l.opp.id:l.us.id,name:sack.defender?.name||"Defender",position:sack.defender?.position||"EDGE",yards:loss});
+  wffLiveEvent((side===0?l.us.city:l.opp.city)+" — "+(sack.quarterback?.name||"Quarterback")+" SACKED by "+(sack.defender?.name||"Defender")+" for a loss of "+loss+" yards!",true);
+  if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs after the sack.",true);wffLiveChangePossession(l.field)}
+  wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
+ }
  const turnoverPass=pass?wffTurnoverPass(l,side,{pressure:defenseFocus==="blitz",desperate:urgent}):null;
  if(turnoverPass?.type==="interception"){
   wffClockSnap(c,"turnover",{duration:6});const st=l.stats[side];st.plays++;st.pass++;l.playCount++;
@@ -127,7 +167,7 @@ function wffLiveFinish(){
  const state=l.state;const homeScore=l.score[0],awayScore=l.score[1];
  if(homeScore>awayScore)state.wins++;else if(homeScore<awayScore)state.losses++;
  const game={week:state.week,home:teamLabel(l.us),away:teamLabel(l.opp),homeScore,awayScore,totalPlays:l.playCount,penalties:l.penaltyLog,turnovers:l.stats.map(x=>({interceptions:x.interceptions||0,fumbles:x.fumbles||0,fumblesLost:x.fumblesLost||0,nearInterceptions:x.nearInterceptions||0})),log:l.events.slice(0,16).map(x=>x.message),stats:l.stats};
- game.fixtureId=l.matchup.id;game.teamIds=[l.us.id,l.opp.id];game.year=state.finance.year;
+ game.fixtureId=l.matchup.id;game.teamIds=[l.us.id,l.opp.id];game.year=state.finance.year;game.liveSacks=l.liveSacks||[];
  state.games.push(game);wffBusinessRecordGame(state,game);
  const medical=wffPlayWorkload(state,l.weather,"week-"+state.week);
  if(medical.injuries.length)wffLiveEvent("Medical report: "+medical.injuries.length+" injuries recorded.",true);
