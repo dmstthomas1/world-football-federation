@@ -138,7 +138,7 @@ function wffGameBoxScoreView(state,game){
  const labels=[game.home,game.away];
  const scores=[game.homeScore,game.awayScore];
  const teamStats=game.stats||[];
- const statRows=[["Offensive plays","plays"],["Passing plays","pass"],["Rushing plays","rush"],["Total offensive yards","yards"],["First downs","firstDowns"],["Turnovers","turnovers"],["Sacks allowed","sacksAllowed"],["Sack yards lost","sackYardsLost"],["Defensive sacks","sacks"]];
+ const statRows=[["Offensive plays","plays"],["Passing plays","pass"],["Rushing plays","rush"],["Total offensive yards","yards"],["First downs","firstDowns"],["Turnovers","turnovers"],["Sacks allowed","sacksAllowed"],["Sack yards lost","sackYardsLost"],["Defensive sacks","sacks"],["Blitzes called","blitzCalls"],["Blitzes faced","blitzFaced"],["Blitzes picked up","blitzPickedUp"],["Quick throws vs blitz","quickThrows"]];
  const safe=v=>esc(String(v));
  let html='<section class="panel"><h2>Final Game Box Score • Week '+safe(game.week)+'</h2><div class="score">'+safe(labels[0])+' '+safe(scores[0])+' — '+safe(scores[1])+' '+safe(labels[1])+'</div><p class="muted">Team totals are recorded from the live simulator. Individual player statistics are modeled estimates, not attributed live plays.</p></section>';
  html+='<section class="panel"><h2>Team Offense & Defense</h2><div class="wff-stat-table"><table><thead><tr><th>Statistic</th><th>'+safe(labels[0])+'</th><th>'+safe(labels[1])+'</th></tr></thead><tbody>';
