@@ -129,13 +129,18 @@ function wffLiveStep(){
  const opponentTimeouts=c.timeouts[1-side];
  const policy=wffClockChoose({...c,down:l.down},lead,opponentTimeouts,l.field);
  const urgent=(c.quarter===2||c.quarter===4)&&c.remaining<=120&&lead<=0;
- if(c.running){const userTempo=side===0?l.adjustments.tempo:"normal";const wait=policy==="drain"||userTempo==="drain"&&!urgent?37:urgent||userTempo==="hurry"?9:28;wffClockRunoff(c,wait);c.playClock=Math.max(1,40-wait);if(wffLiveEndPeriod()){wffLiveRender();return}}
- // Either CPU coach can stop a running clock when trailing late.
+ // Defense may use a timeout before the offense burns the next play-clock interval.
  const defenseSide=1-side,defenseLead=l.score[defenseSide]-l.score[side];
- if(c.quarter===4&&defenseLead<0&&c.running&&c.timeouts[defenseSide]>0&&wffCoachTimeoutChoice({quarter:c.quarter,seconds:c.remaining,lead:defenseLead,ownTimeouts:c.timeouts[defenseSide],opponentHasBall:true,opponentRunning:c.running,down:l.down})){
+ if(c.quarter===4&&defenseLead<0&&c.running&&c.timeouts[defenseSide]>0&&wffCoachTimeoutChoice({quarter:c.quarter,seconds:c.remaining,lead:defenseLead,ownTimeouts:c.timeouts[defenseSide],opponentHasBall:true,opponentRunning:true,down:l.down})){
   c.timeouts[defenseSide]--;c.running=false;c.playClock=25;
   wffLiveEvent((defenseSide===0?l.us.city:l.opp.city)+" calls timeout. "+c.timeouts[defenseSide]+" remaining.",true);
   wffLiveRender();wffLiveSchedule();return;
+ }
+ if(c.running){
+  const userTempo=side===0?l.adjustments.tempo:"normal";
+  const wait=policy==="drain"||policy==="kneel"||userTempo==="drain"&&!urgent?37:urgent||userTempo==="hurry"?9:28;
+  wffClockRunoff(c,wait);c.playClock=Math.max(1,40-wait);
+  if(wffLiveEndPeriod()){wffLiveRender();return}
  }
  const prePenalty=wffPenaltyRoll(l,side,false,"pre");if(prePenalty){wffLiveEvent(wffPenaltyApply(l,prePenalty),true);c.running=false;wffLiveRender();wffLiveSchedule();return}
  if(l.down===4){
@@ -145,9 +150,12 @@ function wffLiveStep(){
  wffLiveEvent((side===0?l.us.city:l.opp.city)+" goes for it on fourth and "+l.toGo+".",true);wffAudio.event("critical",1-side,l);wffBroadcast.call("fourthTry",l,side);
  }
  if(l.down===3&&l.toGo<=3&&c.quarter>=3&&Math.abs(lead)<=8)wffAudio.event("critical",1-side,l);
- const kneel=policy==="kneel";const offense=l.adjustments.offense,tempo=l.adjustments.tempo;
+ // Never throw with a secure late lead: kneel when appropriate, otherwise run.
+ const protectLead=c.quarter===4&&lead>0&&c.remaining<=180;
+ const kneel=protectLead&&(c.remaining<=65||policy==="kneel");
+ const offense=l.adjustments.offense,tempo=l.adjustments.tempo;
  const selected=l.calledPlay?.play;
- const pass=!kneel&&(selected?selected.kind==="pass":l.r()<.56);
+ const pass=!protectLead&&!kneel&&(selected?selected.kind==="pass":l.r()<.56);
  const defenseFocus=l.plans[1-side].defense,mods=wffPlanModifiers(l,side,pass,selected||{});
  const talent=side===0?l.state.roster.reduce((n,p)=>n+p.overall,0)/Math.max(1,l.state.roster.length):rating(l.opp.id,12);
  const opposingTalent=side===0?rating(l.opp.id,12):l.state.roster.reduce((n,p)=>n+p.overall,0)/Math.max(1,l.state.roster.length);
