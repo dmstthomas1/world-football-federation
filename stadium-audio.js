@@ -2,7 +2,7 @@
 // Procedural, original stadium sound effects. No external sound files or autoplay.
 const WFF_AUDIO_KEY="wff-audio-v1";
 const wffAudio={
- settings:{enabled:true,crowd:75,effects:85,commentary:true},ctx:null,active:[],lastEvent:"",
+ settings:{enabled:true,crowd:75,effects:85,commentary:false},ctx:null,active:[],lastEvent:"",
  load(){try{const s=JSON.parse(localStorage.getItem(WFF_AUDIO_KEY));if(s&&typeof s==="object")this.settings={...this.settings,...s}}catch{}},
  save(){try{localStorage.setItem(WFF_AUDIO_KEY,JSON.stringify(this.settings))}catch{}},
  unlock(){if(!this.settings.enabled)return;try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;if(!this.ctx)this.ctx=new C();if(this.ctx.state==="suspended")this.ctx.resume().catch(()=>{})}catch{}},
@@ -53,7 +53,7 @@ const wffAudio={
  },
  controls(){
   const s=this.settings;
-  return '<section class="panel"><h3>Stadium Audio</h3><div class="toolbar"><label><input type="checkbox" id="audio-enabled" '+(s.enabled?"checked":"")+'> Enable sound</label><button class="btn secondary" id="audio-test">Enable / Test Sound</button></div><div class="toolbar"><label>Crowd volume <input id="audio-crowd" type="range" min="0" max="100" value="'+s.crowd+'"></label><strong id="audio-crowd-value">'+s.crowd+'%</strong><label>Effects volume <input id="audio-effects" type="range" min="0" max="100" value="'+s.effects+'"></label><strong id="audio-effects-value">'+s.effects+'%</strong></div><label><input type="checkbox" id="audio-commentary" '+(s.commentary?"checked":"")+'> Commentary audio when available</label><p class="muted">Original synthesized crowd reactions and stadium cues. Spoken commentary is not implemented. Browser audio begins after you press Enable / Test Sound.</p></section>';
+  return '<section class="panel"><h3>Stadium Audio</h3><div class="toolbar"><label><input type="checkbox" id="audio-enabled" '+(s.enabled?"checked":"")+'> Enable sound</label><button class="btn secondary" id="audio-test">Enable / Test Sound</button></div><div class="toolbar"><label>Crowd volume <input id="audio-crowd" type="range" min="0" max="100" value="'+s.crowd+'"></label><strong id="audio-crowd-value">'+s.crowd+'%</strong><label>Effects volume <input id="audio-effects" type="range" min="0" max="100" value="'+s.effects+'"></label><strong id="audio-effects-value">'+s.effects+'%</strong></div><label><input type="checkbox" id="audio-commentary" '+(s.commentary?"checked":"")+'> Broadcast commentary (voice)</label><p class="muted">Original synthesized crowd reactions and stadium cues. Broadcast voice commentary is not yet implemented; it defaults to Off. Crowd and game sounds still work when commentary is Off. Browser audio begins after you press Enable / Test Sound.</p></section>';
  },
  bind(){
   const s=this.settings,by=id=>document.getElementById(id);
