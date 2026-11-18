@@ -117,7 +117,7 @@ function wffMyTeamStatsView(state){
  html+='<section class="panel"><h2>Modeled Player Production</h2><p class="muted">Estimated season totals based on completed game scores, not individually tracked live plays.</p><div class="grid">'+metric("Passing yards",total("passYds"))+metric("Passing TD",total("passTd"))+metric("Rushing yards",total("rushYds"))+metric("Rushing TD",total("rushTd"))+metric("Receiving yards",total("recYds"))+metric("Sacks",total("sacks"))+metric("Defensive INT",total("defInt"))+'</div></section>';
  for(const [title,filter,fields] of WFF_PLAYER_STAT_SECTIONS){
   const players=season.filter(filter).sort((a,b)=>b[fields[1][1]]-a[fields[1][1]]);
-  html+='<section class="panel"><h2>'+title+' — '+esc(team.city)+'</h2><div class="wff-stat-table"><table><thead><tr><th>Player</th>'+fields.map(([label])=>'<th>'+label+'</th>').join("")+'</tr></thead><tbody>'+players.map(p=>'<tr><td>'+esc(p.name)+' <small>('+esc(p.position)+')</small></td>'+fields.map(([,key])=>'<td>'+wffPlayerMetric(p,key)+'</td>').join("")+'</tr>').join("")+'</tbody></table></div>'+(players.length?'':'<p class="muted">No recorded games yet.</p>')+'</section>';
+  html+='<section class="panel"><h2>'+title+' — '+esc(team.city)+'</h2><div class="wff-stat-table"><table><thead><tr><th>Player</th>'+fields.map(([label])=>'<th>'+label+'</th>').join("")+'</tr></thead><tbody>'+players.map(p=>'<tr><td>'+wffPlayerProfileLink(p)+' <small>('+esc(p.position)+')</small></td>'+fields.map(([,key])=>'<td>'+wffPlayerMetric(p,key)+'</td>').join("")+'</tr>').join("")+'</tbody></table></div>'+(players.length?'':'<p class="muted">No recorded games yet.</p>')+'</section>';
  }
  html+='<section class="panel"><h2>Game-by-Game Results</h2>';
  if(!games.length)html+='<p class="muted">Your season starts with no statistics. Results will appear after Week 1.</p>';
@@ -150,10 +150,30 @@ function wffGameBoxScoreView(state,game){
    const group=roster.filter(filter);
    if(!group.length)continue;
    html+='<h3>'+title+'</h3><div class="wff-stat-table"><table><thead><tr><th>Player</th>'+cols.map(([label])=>'<th>'+label+'</th>').join('')+'</tr></thead><tbody>';
-   for(const p of group)html+='<tr><td>'+safe(p.name)+' <small>'+safe(p.position)+'</small></td>'+cols.map(([,key])=>'<td>'+safe(wffPlayerMetric(p,key))+'</td>').join('')+'</tr>';
+   for(const p of group)html+='<tr><td>'+wffPlayerProfileLink(p)+' <small>'+safe(p.position)+'</small></td>'+cols.map(([,key])=>'<td>'+safe(wffPlayerMetric(p,key))+'</td>').join('')+'</tr>';
    html+='</tbody></table></div>';
   }
   html+='</section>';
  }
  return html;
+}
+
+function wffPlayerProfileLink(p){return '<button type="button" class="wff-player-link" data-wff-player="'+esc(String(p.teamId))+'|'+esc(p.name)+'|'+esc(p.position)+'">'+esc(p.name)+'</button>'}
+function wffPlayerProfileView(state,teamId,name,position){
+ const roster=wffStatRoster(state,teamId),player=roster.find(p=>p.name===name&&p.position===position);
+ const stats=wffSeasonPlayers(state).find(p=>p.teamId===teamId&&p.name===name&&p.position===position);
+ const team=teams[teamId],safe=x=>esc(String(x??"—"));
+ if(!team)return '<section class="panel"><h2>Player unavailable</h2></section>';
+ const seed=dnaHash(teamId+"|"+name+"|"+position);
+ const hometowns=["Cedar Falls","Lakewood","Riverton","Westhaven","Pine Ridge","Brookfield","Stonebridge","Fairview","Ashford","Northfield"];
+ const colleges=["North Valley University","Coastal State","Redwood Tech","Great Lakes College","Prairie State","Summit University","Atlantic Polytechnic","Western Ridge","Central Plains University","Lakeshore State"];
+ const hometown=hometowns[seed%hometowns.length],college=colleges[Math.floor(seed/13)%colleges.length];
+ const metric=(label,value)=>'<div class="stat"><small>'+label+'</small><b>'+safe(value)+'</b></div>';
+ const contract=player?.contract||state.roster?.find(p=>p.name===name&&p.position===position)?.contract;
+ const years=player?.yearsPro??player?.experience;
+ let html='<section class="panel"><h2>'+safe(name)+' <small>'+safe(position)+'</small></h2><p>'+wffLogo(team,32)+' '+safe(teamLabel(team))+'</p><div class="grid">'+metric("Position",position)+metric("Age",player?.age)+metric("Height",player?.height?dnaFormatHeight(player.height):"Not recorded")+metric("Weight",player?.weight?player.weight+" lb":"Not recorded")+metric("Overall",player?.overall)+metric("Archetype",player?.archetype)+metric("Experience",years!=null?years+" years":"Not recorded")+metric("Rookie",player?.rookie===true?"Yes":years===0?"Yes":"Not confirmed")+'</div><h3>Player background</h3><p>Fictional hometown: '+safe(hometown)+' • Fictional college: '+safe(college)+'</p><p class="muted">Background is a deterministic fictional placeholder until player biographies are stored. It is not an established scouting record.</p><h3>Contract</h3><p>'+safe(contract?.years??player?.contractYears??"Contract term not recorded")+(contract?.years!=null?" years":"")+' • '+(contract?.salary!=null?safe(contract.salary):"Salary not recorded")+'</p></section>';
+ html+='<section class="panel"><h2>Current Season Statistics</h2><p class="muted">Individual statistics are modeled unless explicitly recorded by the live game engine. Complete career histories are not yet stored.</p>';
+ if(!stats)html+='<p>No season statistics available.</p>';
+ else for(const [title,filter,cols] of WFF_PLAYER_STAT_SECTIONS){if(!filter(stats))continue;html+='<h3>'+title+'</h3><div class="grid">'+cols.map(([label,key])=>metric(label,wffPlayerMetric(stats,key))).join("")+'</div>'}
+ return html+'</section><section class="panel"><h2>Career Statistics</h2><p class="muted">Historical season-by-season player statistics are not yet retained; career totals cannot be verified. Future seasons will need persistent player identities and archived statistics.</p></section>';
 }
