@@ -196,7 +196,22 @@ function wffFieldView(l){
   if(!passPlay){mx=front?-16:back?-35:-27;my=runDirection*28+(i%2?8:-8)}
   players.push(dot(ballX+dx,210+dy,dc[0],dc[1],defensiveLabels[i],mx,my,.18));
  });
- const ballTravel=snapType==="run"?Math.max(25,distance):snapType==="pass"||snapType==="incomplete"||snapType==="interception"?Math.min(150,Math.max(65,distance)):snapType==="punt"||snapType==="kickoff"?170:0;
- const ball='<g class="wff-play-ball" style="--move-x:'+ballTravel+'px;--move-y:'+(snapType==="pass"?-45:0)+'px;--play-duration:'+animationDuration+'s"><ellipse cx="'+ballX+'" cy="210" rx="9" ry="5" fill="#7d4524" stroke="#fff" stroke-width="1.4"/><path d="M'+(ballX-4)+' 210h8" stroke="#fff" stroke-width="1.5"/></g>';
+ const visual=l.playVisual?.side===l.possession?l.playVisual:null;
+ const result=visual?.kind||snapType;
+ const qbPoint=formations[5]||[-20,0],hbPoint=formations[6]||[-65,0];
+ const receiverIndex=7+Math.abs(dnaHash(String(concept)))%4;
+ const targetPoint=formations[receiverIndex]||formations[7]||[-9,-120];
+ const routePoint=route(offensiveLabels[receiverIndex]||"WR",receiverIndex-7);
+ let handX=hbPoint[0],handY=hbPoint[1],endX=hbPoint[0]+Math.max(24,distance),endY=hbPoint[1]+runDirection*44;
+ if(result==="kneel"||result==="sack"){handX=qbPoint[0];handY=0;endX=qbPoint[0]+(result==="sack"?-24:-3);endY=0}
+ if(["complete","pass","incomplete","interception","throwaway"].includes(result)){
+  handX=qbPoint[0]-18;handY=0;endX=targetPoint[0]+routePoint[0];endY=targetPoint[1]+routePoint[1];
+  if(result==="incomplete"){endX+=25;endY+=24}
+  if(result==="throwaway"){endX=80;endY=220}
+ }
+ if(result==="fumble"){endX=hbPoint[0]+38;endY=hbPoint[1]+38}
+ const clampX=v=>Math.max(62,Math.min(918,ballX+v))-ballX;
+ const clampY=v=>Math.max(43,Math.min(377,210+v))-210;
+ const ball='<g class="wff-tracked-ball" style="--ball-start-x:'+clampX(qbPoint[0])+'px;--ball-start-y:'+clampY(qbPoint[1])+'px;--ball-hand-x:'+clampX(handX)+'px;--ball-hand-y:'+clampY(handY)+'px;--ball-end-x:'+clampX(endX)+'px;--ball-end-y:'+clampY(endY)+'px;--play-duration:'+animationDuration+'s"><ellipse cx="'+ballX+'" cy="210" rx="7" ry="4" fill="#7d4524" stroke="#fff" stroke-width="1.4"/><path d="M'+(ballX-3)+' 210h6" stroke="#fff" stroke-width="1.3"/></g>';
  return '<section class="panel wff-field-panel"><h2>Live Field • '+esc(teamLabel(off))+' on offense</h2><p><strong>'+esc(packageInfo.formation+' '+variant)+' • '+esc(packageInfo.personnel)+' personnel</strong> vs <strong>'+esc(packageInfo.defense)+' defense</strong></p>'+scoreboard+'<div class="wff-field-wrap">'+highlightMarkup+kickOverlay+'<svg viewBox="0 0 980 420" role="img" aria-label="2D football field with player formations, ball at yard '+yard+' and first down at yard '+first+'" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="980" height="420" rx="14" fill="#102b21"/><rect x="50" y="30" width="880" height="360" fill="#246d43"/><rect x="50" y="30" width="88" height="360" fill="'+oc[1]+'" opacity=".7"/><rect x="842" y="30" width="88" height="360" fill="'+dc[1]+'" opacity=".7"/>'+markers+'<line x1="50" y1="30" x2="930" y2="30" stroke="#fff" stroke-width="4"/><line x1="50" y1="390" x2="930" y2="390" stroke="#fff" stroke-width="4"/><line x1="'+ballX+'" y1="30" x2="'+ballX+'" y2="390" stroke="#53baff" stroke-width="3"/><line x1="'+firstX+'" y1="30" x2="'+firstX+'" y2="390" stroke="#ffd04d" stroke-width="4" stroke-dasharray="12 7"/>'+players.join("")+ball+'<text x="94" y="210" transform="rotate(-90 94 210)" font-size="14" font-weight="900" text-anchor="middle" fill="#fff">'+esc(teamLabel(l.matchup?.home===l.us.id?l.us:l.opp))+'</text><text x="887" y="210" transform="rotate(90 887 210)" font-size="14" font-weight="900" text-anchor="middle" fill="#fff">'+esc(teamLabel(l.matchup?.away===l.us.id?l.us:l.opp))+'</text></svg></div><div class="wff-field-key"><span><i style="background:'+oc[0]+'"></i> '+esc(off.city)+' offense</span><span><i style="background:'+dc[0]+'"></i> '+esc(def.city)+' defense</span><span>🔵 Line of scrimmage</span><span>🟡 First down</span></div><div class="wff-inline-play-feed" aria-live="polite"><h3>Live Play-by-Play</h3>'+l.events.slice(0,10).map((event,i)=>'<div class="wff-inline-play'+(i===0?' wff-inline-play-latest':'')+'"><span class="wff-inline-play-time">Q'+event.q+' '+event.time+'</span><span>'+esc(event.message)+'</span></div>').join('')+'</div></section>';
 }
