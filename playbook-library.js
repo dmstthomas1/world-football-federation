@@ -24,6 +24,13 @@ const WFF_SCHEMES={
  "Run and Shoot":{forms:["Shotgun","Pistol","Singleback"],run:["Inside Zone","Draw","Outside Zone","Read Option"],pass:["Four Verticals","Y Cross","Shallow Cross","Post-Dig","Corner","Dagger","Levels","Mesh","Quick Outs","Smash"],target:170},
  "Run and Gun":{forms:["Shotgun","Pistol","Singleback"],run:["Inside Zone","Read Option","Draw","Outside Zone","Counter"],pass:["Four Verticals","Mesh","Y Cross","Slants","Dagger","Screens","Levels","Sail","Shallow Cross","Deep Over"],target:180}
 };
+// Goal-line calls are guaranteed in every offensive system, regardless of its base formations.
+const WFF_GOAL_CALLS=[
+ {concept:"HB Dive",kind:"run"},{concept:"Power O",kind:"run"},
+ {concept:"FB Dive",kind:"run"},{concept:"QB Sneak",kind:"run"},
+ {concept:"Play Action Boot",kind:"pass"},{concept:"Play Action TE Leak",kind:"pass"},
+ {concept:"Goal Line Slants",kind:"pass"},{concept:"TE Flat",kind:"pass"}
+];
 const WFF_DEF_SCHEMES={
  "4-3":["4-3 Over","4-3 Under","4-3 Wide","4-3 Bear","Nickel 4-2-5","Nickel Double A","Dime 4-1-6","Goal Line 6-2"],
  "3-4":["3-4 Odd","3-4 Even","3-4 Bear","3-4 Under","Nickel 2-4-5","3-3-5 Stack","3-3-5 Over","3-3-5 Bear","Dime 3-2-6","Goal Line 5-3"],
@@ -45,7 +52,10 @@ function wffPlayLibrary(style){
  while(result.length<cfg.target&&buckets.some(b=>b.length)){
   for(const bucket of buckets){if(!bucket.length||result.length>=cfg.target)continue;const index=Math.floor(bucket.length/2);result.push(bucket.splice(index,1)[0])}
  }
- return result;
+ // Reserve goal-line run, sneak, play-action and conventional passing options.
+ const goal=WFF_GOAL_CALLS.map((call,i)=>({id:"Goal Line|"+(i%2?"Jumbo":"Heavy")+"|"+call.concept,formation:"Goal Line",variant:i%2?"Jumbo":"Heavy",personnel:"23",...call}));
+ const keep=result.filter(p=>p.formation!=="Goal Line").slice(0,Math.max(0,cfg.target-goal.length));
+ return [...keep,...goal];
 }
 function wffDefenseLibrary(front){
  return (WFF_DEF_SCHEMES[front]||WFF_DEF_SCHEMES["4-3"]).flatMap(formation=>WFF_DEF_CALLS.map(concept=>({id:formation+"|"+concept,formation,concept})));
@@ -61,10 +71,41 @@ function wffCallPlay(l,side){
  const style=l.schemes[side].offense,front=l.schemes[1-side].front;
  const cfg=wffPlayConfig(l.state),off=wffPlayLibrary(style).filter(p=>side!==0||!cfg.disabledOffense[p.id]);
  const distance=l.toGo,down=l.down,late=l.clock.quarter>=4,focus=l.plans[side].offense,defFocus=l.plans[1-side].defense;
- const runBias=/Power Run|Wide Zone/.test(style)?.62:/Air Raid|Run and Shoot|Run and Gun/.test(style)?.30:/Spread|Vertical/.test(style)?.37:.46;
- const wantRun=l.r()<Math.max(.12,Math.min(.82,runBias+wffPlanRunBias(focus)+(distance<=2?.16:distance>=8?-.16:0)+(down===3?-.15:0)+(late&&l.score[side]>l.score[1-side]?.12:0)));
- const pool=off.filter(p=>p.kind===(wantRun?"run":"pass"));
- const play=wffWeightedChoice(pool.length?pool:off,l.r,p=>wffPlanPlayFit(p,focus))||wffPlayLibrary(style)[0];
+ const scoreDiff=l.score[side]-l.score[1-side],seconds=l.clock.remaining;
+ const goalToGo=l.field>=90&&distance>=100-l.field;
+ const nearGoal=l.field>=94||goalToGo;
+ const short=distance<=2,long=distance>=8,veryLong=distance>=14;
+ const baseRun=({"Balanced Multiple":.44,"West Coast":.43,"Power Run":.56,"Vertical Passing":.37,"Spread":.40,"Wide Zone":.53,"Air Raid":.32,"Run and Shoot":.34,"Run and Gun":.38})[style]??.44;
+ let runChance=baseRun+wffPlanRunBias(focus)*.55;
+ if(down===1)runChance+=.07;
+ if(down===2)runChance+=(short?.09:distance>=10?-.12:0);
+ if(down===3)runChance+=short?.10:distance<=5?-.12:-.34;
+ if(down===4)runChance+=short?.16:distance<=5?-.10:-.39;
+ if(veryLong)runChance-=down>=3?.22:.13;
+ else if(long&&down>=2)runChance-=.08;
+ if(nearGoal)runChance+=short?.15:.04;
+ if(l.field<=5)runChance+=.08;
+ if(l.clock.quarter===4&&scoreDiff>=9)runChance+=.11;
+ if(l.clock.quarter===4&&scoreDiff<0&&seconds<300)runChance-=.23;
+ if((l.clock.quarter===2||l.clock.quarter===4)&&seconds<90&&scoreDiff<=0)runChance-=.13;
+ runChance=Math.max(down>=3&&veryLong?.025:.10,Math.min(.77,runChance));
+ const wantRun=l.r()<runChance;
+ const situational=off.filter(p=>nearGoal?p.formation==="Goal Line":p.formation!=="Goal Line");
+ const choices=situational.length?situational:off;
+ const pool=choices.filter(p=>p.kind===(wantRun?"run":"pass"));
+ const play=wffWeightedChoice(pool.length?pool:choices,l.r,p=>{
+  let weight=Math.max(.1,wffPlanPlayFit(p,focus));
+  if(p.formation==="Goal Line"){
+   if(p.concept==="QB Sneak")weight*=distance<=1?6:distance<=2?2:.18;
+   if(/Play Action/.test(p.concept))weight*=down===1||down===2?2:1;
+   if(/TE Flat|Slants/.test(p.concept))weight*=distance>=4?3:1;
+  }else{
+   if(/Four Verticals|Deep Over|Dagger|Post-Dig/.test(p.concept))weight*=distance>=9?2.2:distance<=3?.4:1;
+   if(/Screens|Draw/.test(p.concept))weight*=down>=3&&distance>=12?.65:1;
+   if(/Power O|Duo|Iso|Inside Zone/.test(p.concept))weight*=distance<=3?1.6:1;
+  }
+  return weight;
+ })||wffPlayLibrary(style)[0];
  const defenses=wffDefenseLibrary(front).filter(p=>side!==1||!cfg.disabledDefense[p.id]);
  // Defensive personnel selection: match offensive grouping, down/distance and field position.
  // Goal-line packages are NOT ordinary base defenses.
@@ -95,7 +136,21 @@ function wffCallPlay(l,side){
   if(distance<=2&&dime(d))w*=.3;
   return Math.max(.01,w)*Math.max(.1,wffPlanDefenseFit(d,defFocus));
  };
- const defense=wffWeightedChoice(available,l.r,weight);
+ // A pressure identity changes the mix, but never makes every snap a blitz.
+ const pressureCalls=available.filter(d=>/Blitz|Pressure/.test(d.concept));
+ const ordinaryCalls=available.filter(d=>!/Blitz|Pressure/.test(d.concept));
+ const scoreGap=l.score[side]-l.score[1-side];
+ let pressureChance=defFocus==="blitz"?.31:defFocus==="disguise"?.20:defFocus==="man"?.17:defFocus==="run"?.13:.12;
+ if(down===3&&distance>=5)pressureChance+=.09;
+ if(down===4&&distance>=5)pressureChance+=.07;
+ if(distance<=2)pressureChance+=.04;
+ if(distance>=14)pressureChance-=.05;
+ if(l.field>=90)pressureChance-=.06;
+ if(l.clock.quarter===4&&scoreGap>=9)pressureChance-=.05;
+ pressureChance=Math.max(.045,Math.min(.43,pressureChance));
+ const callBlitz=pressureCalls.length&&l.r()<pressureChance;
+ const defensivePool=callBlitz?pressureCalls:ordinaryCalls.length?ordinaryCalls:available;
+ const defense=wffWeightedChoice(defensivePool,l.r,weight);
  return {play,defense,formation:play?.formation||"Singleback",personnel:play?.personnel||"11",defenseFormation:defense?.formation||front};
 }
 function wffPlaybookView(state){
