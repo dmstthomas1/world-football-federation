@@ -30,6 +30,53 @@ const WFF_PLAYER_STAT_SECTIONS=[
  ["Defense",p=>(p.tackles||0)+(p.sacks||0)+(p.defInt||0)+(p.forcedFumbles||0)>0,[["TKL","tackles"],["SACK","sacks"],["INT","defInt"],["FF","forcedFumbles"]]],
  ["Kicking & Punting",p=>(p.fga||0)+(p.punts||0)>0,[["FGM","fgm"],["FGA","fga"],["FG%","fgPct"],["PUNTS","punts"]]]
 ];
+const WFF_HOMETOWNS=["Cedar Falls","Lakewood","Riverton","Westhaven","Pine Ridge","Brookfield","Stonebridge","Fairview","Ashford","Northfield"];
+const WFF_COLLEGES=["North Valley University","Coastal State","Redwood Tech","Great Lakes College","Prairie State","Summit University","Atlantic Polytechnic","Western Ridge","Central Plains University","Lakeshore State"];
+function wffPlayerId(teamId,p){return p.playerId||"wff-"+dnaHash(String(teamId)+"|"+p.name+"|"+p.position).toString(36)}
+function wffPlayerRegistry(state){
+ if(!state.playerRegistry)state.playerRegistry={};
+ return state.playerRegistry;
+}
+function wffRegisterPlayer(state,teamId,p){
+ const id=wffPlayerId(teamId,p),registry=wffPlayerRegistry(state);
+ if(!registry[id]){
+  const seed=dnaHash(id);
+  registry[id]={id,name:p.name,position:p.position,originalTeamId:teamId,teamId,age:p.age??null,height:p.height??null,weight:p.weight??null,college:WFF_COLLEGES[Math.floor(seed/13)%WFF_COLLEGES.length],hometown:WFF_HOMETOWNS[seed%WFF_HOMETOWNS.length],rookie:!!p.rookie,yearsPro:p.yearsPro??p.experience??null,firstSeenYear:state.finance?.year??null,contract:p.contract??null};
+ }else{
+  const r=registry[id];r.teamId=teamId;
+  for(const key of ["age","height","weight","yearsPro","contract"])if(p[key]!=null)r[key]=p[key];
+ }
+ return registry[id];
+}
+function wffEnsurePlayerRegistry(state){
+ wffPlayerRegistry(state);
+ for(const team of teams){
+  const roster=wffStatRoster(state,team.id);
+  for(const p of roster)wffRegisterPlayer(state,team.id,p);
+ }
+}
+function wffPlayerHistory(state,id){
+ const archive=state.playerSeasonHistory||{};
+ return Object.values(archive).flatMap(year=>Object.values(year)).filter(p=>p.playerId===id).sort((a,b)=>a.year-b.year);
+}
+function wffArchivePlayerSeason(state,year){
+ if(!state.playerSeasonHistory)state.playerSeasonHistory={};
+ if(state.playerSeasonHistory[year])return false;
+ const totals=wffSeasonPlayers(state);
+ state.playerSeasonHistory[year]={};
+ for(const p of totals){
+  const record=wffRegisterPlayer(state,p.teamId,p),row={playerId:record.id,teamId:p.teamId,name:p.name,position:p.position,year};
+  for(const field of WFF_STAT_FIELDS)row[field]=p[field]||0;
+  state.playerSeasonHistory[year][record.id]=row;
+ }
+ return true;
+}
+function wffPlayerCareerTotals(state,id){
+ const rows=wffPlayerHistory(state,id),total={};
+ for(const field of WFF_STAT_FIELDS)total[field]=0;
+ for(const p of rows)for(const field of WFF_STAT_FIELDS)total[field]+=p[field]||0;
+ return {rows,total};
+}
 function wffStatRoster(state,id){
  if(id===state.teamId)return state.roster;
  return makeRoster(id).map((p,i)=>dnaBuild(p,id,i,false));
@@ -93,7 +140,7 @@ function wffSeasonPlayers(state){
  const map={};
  for(const box of Object.values(state.leagueBoxScores))for(const p of box){
   const key=p.teamId+"|"+p.name+"|"+p.position;
-  if(!map[key])map[key]={...p};else for(const field of WFF_STAT_FIELDS)map[key][field]+=(p[field]||0);
+  if(!map[key])map[key]={...p,playerId:wffPlayerId(p.teamId,p)};else for(const field of WFF_STAT_FIELDS)map[key][field]+=(p[field]||0);
  }
  return Object.values(map);
 }
