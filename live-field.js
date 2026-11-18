@@ -30,7 +30,7 @@ function wffFieldView(l){
   kneel:"QB KNEEL • Loss of 1 yard",
   fumble:"FUMBLE!"
  })[play.kind]||"":""; 
- const playSummaryMarkup=playSummary?'<div class="wff-field-play-summary" role="status" aria-live="polite">'+esc(playSummary)+'</div>':'';
+ const playSummaryMarkup=playSummary?'<div class="wff-field-play-summary wff-play-result-delayed" style="--result-animation-duration:'+Math.max(1.1,Math.min(4.8,(WFF_LIVE_SPEED?.[l.speed]||4000)/1000*.72))+'s" role="status" aria-live="polite">'+esc(playSummary)+'</div>':'';
  const kick=l.specialTeams?.phase==="scoreHold"?null:l.specialTeams;
  const kickOverlay=kick?'<div class="wff-kick-overlay" role="status" aria-live="polite"><strong>'+(kick.type==="punt"?"PUNT":"KICKOFF")+'</strong><span>'+(kick.phase==="flight"?"BALL IN FLIGHT • "+kick.distance+" YARDS":kick.touchback?"TOUCHBACK":"RETURN • "+kick.returnYards+" YARDS")+'</span><div class="wff-kick-track"><i class="wff-kick-ball '+(kick.phase==="flight"?"wff-kick-flight":"wff-kick-landed")+'">🏈</i></div><small>'+(kick.receivingSide===0?esc(l.us.city):esc(l.opp.city))+' receiving</small></div>':'';
  const markers=Array.from({length:11},(_,i)=>i*10).map(y=>'<line x1="'+x(y)+'" y1="30" x2="'+x(y)+'" y2="390" stroke="#ffffff" stroke-opacity=".4" stroke-width="2"/><text x="'+x(y)+'" y="218" fill="#ffffff" fill-opacity=".6" font-size="19" text-anchor="middle">'+(y===0||y===100?"":y<=50?y:100-y)+'</text>').join("");
