@@ -16,7 +16,7 @@ function wffLiveStart(state,redraw){
  const weather=wffWeather(us.id,state.week,state.finance?.year||2026);
  wffLive={state,redraw,opp,us,weather,r,matchup,clock:wffClockCreate(),score:[0,0],possession:0,field:25,down:1,toGo:10,
  stats:[{plays:0,pass:0,rush:0,yards:0,firstDowns:0,turnovers:0},{plays:0,pass:0,rush:0,yards:0,firstDowns:0,turnovers:0}],
- events:[],penaltyLog:[],speed:"medium",paused:false,breakType:null,complete:false,playCount:0,
+ events:[],formation:null,penaltyLog:[],speed:"medium",paused:false,breakType:null,complete:false,playCount:0,
  adjustments:{offense:"balanced",defense:"balanced",tempo:"normal"},league:(state.leagueSchedule.weeks[state.week-1]||[]).filter(g=>g.id!==matchup.id).slice(0,8).map(g=>({...wffLeagueScore(state,g),home:teamLabel(teams[g.home]),away:teamLabel(teams[g.away])}))};
  wffLiveRender();wffLiveSchedule();
 }
@@ -38,6 +38,7 @@ function wffLiveContinue(){
 }
 function wffLiveStep(){
  const l=wffLive;if(!l||l.paused||l.breakType||l.complete)return;
+ l.formation=wffPackage(l,l.possession);
  const c=l.clock,side=l.possession,lead=l.score[side]-l.score[1-side];
  const profile=side===0?l.state.staff.hc.tendencies:wffCoachProfile(l.opp.id);
  const opponentTimeouts=c.timeouts[1-side];
@@ -80,6 +81,7 @@ function wffLiveStep(){
   else{l.down++;if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs after recovered fumble.",true);wffLiveChangePossession()}}
   wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
+ if(l.formation)l.formation.playType=kneel?"Kneel":pass?"Pass":"Run";
  const kind=kneel?"kneel":pass?(complete?"pass_complete":"pass_incomplete"):"run";
  wffClockSnap(c,kind,{duration:kind==="pass_incomplete"?5:6});
  const st=l.stats[side];st.plays++;l.playCount++;if(pass)st.pass++;else st.rush++;st.yards+=gain;
