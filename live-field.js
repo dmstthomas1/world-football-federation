@@ -25,29 +25,63 @@ function wffFieldView(l){
  const rb=shotgun?[-87,38]:pistol?[-96,0]:underCenter?[-110,0]:[-83,0];
  formations.push(rb);offensiveLabels.push("HB");
  // The remaining four positions reflect the actual personnel package.
- let eligible=personnel==="23"?["TE","TE","TE","FB"]:personnel==="22"?["TE","TE","WR","FB"]:personnel==="21"?["WR","WR","TE","FB"]:personnel==="12"?["WR","WR","TE","TE"]:personnel==="10"?["WR","WR","WR","WR"]:["WR","WR","WR","TE"];
- // Personnel counts take precedence over a potentially inconsistent formation nickname.
- let positions=[[-13,-150],[-13,150],[-16,-93],[-16,93]];
- // In a conventional set, tight ends align near the tackle, receivers outside.
- const teSpots=[[-17,-87],[-17,87],[-46,-102]];
- let teIndex=0;
- positions=eligible.map((role,i)=>role==="TE"?(teSpots[teIndex++]||[-18,90]):role==="FB"?[-72,underCenter?0:-42]:positions[i]);
- if(/Trips|Trey/.test(variant)){positions[1]=[-13,130];positions[2]=[-13,92];positions[3]=[-40,113]}
- if(/Bunch/.test(variant)){positions[1]=[-18,113];positions[2]=[-43,137];positions[3]=[-58,104]}
- if(/Empty/.test(variant)){formations[6]=[-13,-115];offensiveLabels[6]="WR";positions[2]=[-13,95];positions[3]=[-13,155]}
- if(/Tight|Wing/.test(variant)&&!/Twin TE/.test(variant)){positions[0]=[-17,-104];positions[1]=[-17,104]}
- if(underCenter){
-  formations[6]=[-116,0];
-  const fb=eligible.indexOf("FB");if(fb>=0)positions[fb]=[-77,formation==="Strong I"?37:formation==="Weak I"?-37:0];
+ // Assign positions by personnel, then use named formation templates rather than random spreading.
+ const roleSets={"10":["WR","WR","WR","WR"],"11":["WR","WR","WR","TE"],"12":["WR","WR","TE","TE"],"21":["WR","WR","TE","FB"],"22":["WR","TE","TE","FB"],"23":["TE","TE","TE","FB"]};
+ const eligible=(roleSets[personnel]||roleSets["11"]).slice();
+ const places={WR:[[-13,-151],[-13,151],[-13,-110],[-13,110]],TE:[[-15,-86],[-15,86],[-42,-104]],FB:[[-77,0]]};
+ const used={WR:0,TE:0,FB:0};
+ let positions=eligible.map(role=>places[role][used[role]++]||[-40,100]);
+ const receivers=eligible.map((role,i)=>role==="WR"?i:-1).filter(i=>i>=0);
+ const tightEnds=eligible.map((role,i)=>role==="TE"?i:-1).filter(i=>i>=0);
+ const fullback=eligible.indexOf("FB");
+ // All named sets have a deliberate silhouette. Right means bottom of the screen.
+ if(/Trips|Trey/.test(variant)&&receivers.length>=3){
+  positions[receivers[0]]=[-13,-151];
+  positions[receivers[1]]=[-13,151];
+  positions[receivers[2]]=[-13,112];
+  if(receivers.length>3)positions[receivers[3]]=[-42,126];
+  if(tightEnds.length)positions[tightEnds[0]]=[-15,86];
  }
- if(formation==="Goal Line"){formations[6]=[-90,0];positions=[[-18,-87],[-18,87],[-55,-52],[-55,52]]}
- // Resolve occasional overlaps in exotic personnel sets while preserving alignment shape.
+ if(/Bunch/.test(variant)&&receivers.length>=2){
+  positions[receivers[0]]=[-13,-151];
+  positions[receivers[1]]=[-13,148];
+  if(receivers.length>2)positions[receivers[2]]=[-42,124];
+  if(tightEnds.length)positions[tightEnds[0]]=[-44,95];
+ }
+ if(/Doubles|Spread/.test(variant)&&receivers.length>=3){
+  positions[receivers[0]]=[-13,-151];positions[receivers[1]]=[-13,151];
+  positions[receivers[2]]=[-13,-108];
+  if(receivers.length>3)positions[receivers[3]]=[-13,108];
+ }
+ if(/Empty/.test(variant)){
+  formations[6]=[-13,-110];offensiveLabels[6]="WR";
+  if(receivers.length){positions[receivers[0]]=[-13,-151];if(receivers.length>1)positions[receivers[1]]=[-13,151];if(receivers.length>2)positions[receivers[2]]=[-13,110]}
+  if(tightEnds.length)positions[tightEnds[0]]=[-13,85];
+ }
+ if(/Wing|Tight/.test(variant)&&!/Twin TE/.test(variant)){
+  if(tightEnds.length)positions[tightEnds[0]]=[-17,-86];
+  if(receivers.length>=2){positions[receivers[0]]=[-13,-120];positions[receivers[1]]=[-13,120]}
+ }
+ if(/Twin TE/.test(variant)&&tightEnds.length>=1){
+  positions[tightEnds[0]]=[-16,-86];
+  if(tightEnds.length>=2)positions[tightEnds[1]]=[-16,86];
+ }
+ if(underCenter){
+  formations[6]=[-117,0];
+  if(fullback>=0)positions[fullback]=[-78,formation==="Strong I"?37:formation==="Weak I"?-37:0];
+ }
+ if(formation==="Goal Line"){
+  formations[6]=[-101,0];
+  tightEnds.forEach((i,n)=>positions[i]=[-16,n%2===0?-87:87]);
+  if(fullback>=0)positions[fullback]=[-72,0];
+ }
+ // Keep exact eleven-player counts and avoid overlapping markers.
  const placed=[...formations];
  positions.forEach((point,i)=>{
   let [px,py]=point;
-  for(let tries=0;tries<12&&placed.some(([ox,oy])=>Math.hypot(px-ox,py-oy)<23);tries++){
-   py=Math.max(-165,Math.min(165,py+(py>=0?1:-1)*26));
-   if(Math.abs(py)>=160)px-=26;
+  for(let tries=0;tries<15&&placed.some(([ox,oy])=>Math.hypot(px-ox,py-oy)<21);tries++){
+   px-=tries%2===0?17:0;
+   py=Math.max(-164,Math.min(164,py+(py>=0?1:-1)*18));
   }
   placed.push([px,py]);formations.push([px,py]);offensiveLabels.push(eligible[i]);
  });
@@ -55,18 +89,21 @@ function wffFieldView(l){
  const frontCount=/6-2/.test(df)?6:/5-3/.test(df)?5:/3-4|3-3-5|3-2-6/.test(df)?3:4;
  const lbCount=/6-2/.test(df)?2:/5-3/.test(df)?3:isDime?(frontCount===3?2:1):isNickel?(frontCount===3?3:2):frontCount===3?4:3;
  const defenders=[],defensiveLabels=[];
+ const over=/Over|Bear/.test(df),under=/Under/.test(df),stack=/Stack/.test(df);
+ const offset=over?19:under?-19:0;
  for(let i=0;i<frontCount;i++){
-  const dy=(i-(frontCount-1)/2)*(frontCount>=5?29:frontCount===4?43:55);
+  const dy=(i-(frontCount-1)/2)*(frontCount>=5?29:frontCount===4?43:55)+offset;
   defenders.push([17,dy]);defensiveLabels.push("DL");
  }
  for(let i=0;i<lbCount;i++){
-  const dy=(i-(lbCount-1)/2)*(lbCount>=4?55:lbCount===3?73:92);
-  defenders.push([isGoal?55:76,dy]);defensiveLabels.push("LB");
+  const dy=(i-(lbCount-1)/2)*(lbCount>=4?51:lbCount===3?76:96)+(over?14:under?-14:0);
+  defenders.push([stack?76:isGoal?55:68,dy]);defensiveLabels.push("LB");
  }
  const dbCount=11-defenders.length;
+ // Cornerbacks align opposite outside receivers; safeties are deeper.
  for(let i=0;i<dbCount;i++){
-  const dy=(i-(dbCount-1)/2)*(dbCount>=6?57:dbCount===5?72:dbCount===4?91:110);
-  defenders.push([i<2?115:158,Math.max(-160,Math.min(160,dy))]);defensiveLabels.push("DB");
+  const spots=dbCount===6?[[68,-151],[68,151],[105,-100],[105,100],[151,-50],[151,50]]:dbCount===5?[[70,-151],[70,151],[104,0],[155,-73],[155,73]]:dbCount===4?[[70,-151],[70,151],[157,-75],[157,75]]:[[70,-151],[70,151],[155,0]];
+  defenders.push(spots[i]||[155,(i-2)*40]);defensiveLabels.push(i<2?"CB":i<4?"S":"DB");
  }
  const dot=(px,py,color,outline,label,animate)=>{
   const cx=Math.max(62,Math.min(918,px)),cy=Math.max(43,Math.min(377,py));
