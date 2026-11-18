@@ -170,11 +170,36 @@ function wffPassRushOutcome(l,side){
  return {...result,sack:true,defender:winner,quarterback:qb,yards:2+Math.floor(l.r()*8)};
 }
 function wffLiveStep(){
+ if(wffLive?.endgameKneel){
+  const l=wffLive;l.endgameKneel=false;l.clock.remaining=0;
+  wffLiveEvent((l.possession===0?l.us.city:l.opp.city)+" runs out the clock. Ballgame!",true);
+  wffLiveFinish();wffLiveRender();return;
+ }
  if(wffLive)wffLive.fieldHighlight=null;
  const l=wffLive;if(!l||l.paused||l.breakType||l.complete)return;
  l.calledPlay=wffCallPlay(l,l.possession);
  l.formation={formation:l.calledPlay.formation,personnel:l.calledPlay.personnel,defense:l.calledPlay.defenseFormation,playType:l.calledPlay.play?.kind==="pass"?"Pass":"Run"};
  const c=l.clock,side=l.possession,lead=l.score[side]-l.score[1-side];
+ // Endgame victory formation: evaluate BEFORE choosing an offensive play.
+ // A kneel costs one second, then the offense can run 39 seconds off the clock.
+ // Account for the trailing club's remaining timeouts conservatively.
+ const opponentTO=c.timeouts[1-side]||0;
+ const kneelDowns=Math.max(0,4-l.down);
+ const safeKneel=c.quarter===4&&lead>0&&l.down<=3&&
+  c.remaining<=1+(Math.max(0,kneelDowns-opponentTO)*39);
+ if(safeKneel){
+  l.calledPlay=null;
+  l.formation={formation:"Victory",personnel:"12",defense:"Base",playType:"Kneel"};
+  l.playVisual={kind:"kneel",gain:-1,side,concept:"Victory Formation"};
+  const offense=side===0?l.us:l.opp;
+  l.stats[side].plays++;l.stats[side].rush++;l.stats[side].yards--;
+  l.playCount++;l.field=Math.max(1,l.field-1);l.down++;l.toGo++;
+  wffClockSnap(c,"kneel");
+  wffLiveEvent(offense.city+" takes a knee in victory formation. "+(c.timeouts[1-side]===0?"The defense has no timeouts remaining.":"Protecting the lead."),true);
+  // Preserve the kneel on screen before draining the rest of the game clock.
+  if(c.timeouts[1-side]===0&&c.remaining<=39){l.endgameKneel=true}
+  wffLiveRender();wffLiveSchedule();return;
+ }
  const profile=side===0?l.state.staff.hc.tendencies:wffCoachProfile(l.opp.id);
  const opponentTimeouts=c.timeouts[1-side];
  const policy=wffClockChoose({...c,down:l.down},lead,opponentTimeouts,l.field);
