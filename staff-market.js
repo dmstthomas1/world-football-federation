@@ -61,7 +61,7 @@ function wffStaffHire(state,key,id){
 function wffStaffNextSeason(state){
  if(!wffStaffOffseason(state))return false;
  const vacant=WFF_STAFF_ROLES.filter(([key])=>!state.staff[key]||state.staff[key].vacant);if(vacant.length)return false;
- state.finance.year++;state.week=1;state.wins=0;state.losses=0;state.staffMarket.phase="season";state.staffMarket.available={};state.staffMarket.history.unshift("Started "+state.finance.year+" season with full staff.");
+ state.finance.year++;state.week=1;state.wins=0;state.losses=0;wffScheduleInit(state);state.staffMarket.phase="season";state.staffMarket.available={};state.staffMarket.history.unshift("Started "+state.finance.year+" season with full staff.");
  return true;
 }
 function wffStaffMarketView(state){
