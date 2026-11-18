@@ -129,3 +129,40 @@ function wffMyTeamStatsView(state){
  for(const g of games){const home=g.home===state.teamId,our=home?g.homeScore:g.awayScore,their=home?g.awayScore:g.homeScore,opp=teams[home?g.away:g.home];html+='<div class="line"><span>Week '+g.week+' • '+(home?'vs ':'at ')+esc(teamLabel(opp))+'</span><strong>'+(our>their?'W':our<their?'L':'T')+' '+our+'–'+their+'</strong></div>'}
  return html+'</section>';
 }
+
+function wffGameBoxScoreView(state,game){
+ if(!game)return '<section class="panel"><h2>Box Score</h2><p>No completed game selected.</p></section>';
+ const ids=game.teamIds||[state.teamId,null],fixture=game.fixtureId;
+ const saved=fixture?state.leagueBoxScores?.[fixture]:null;
+ const players=Array.isArray(saved)?saved:[];
+ const labels=[game.home,game.away];
+ const scores=[game.homeScore,game.awayScore];
+ const teamStats=game.stats||[];
+ const statRows=[["Offensive plays","plays"],["Passing plays","pass"],["Rushing plays","rush"],["Total offensive yards","yards"],["First downs","firstDowns"],["Turnovers","turnovers"]];
+ const safe=v=>esc(String(v));
+ let html='<section class="panel"><h2>Final Game Box Score • Week '+safe(game.week)+'</h2><div class="score">'+safe(labels[0])+' '+safe(scores[0])+' — '+safe(scores[1])+' '+safe(labels[1])+'</div><p class="muted">Team totals are recorded from the live simulator. Individual player statistics are modeled estimates, not attributed live plays.</p></section>';
+ html+='<section class="panel"><h2>Team Offense & Defense</h2><div class="wff-stat-table"><table><thead><tr><th>Statistic</th><th>'+safe(labels[0])+'</th><th>'+safe(labels[1])+'</th></tr></thead><tbody>';
+ for(const [name,key] of statRows)html+='<tr><td>'+name+'</td><td>'+safe(teamStats[0]?.[key]??"—")+'</td><td>'+safe(teamStats[1]?.[key]??"—")+'</td></tr>';
+ html+='<tr><td>Points scored</td><td>'+scores[0]+'</td><td>'+scores[1]+'</td></tr><tr><td>Points allowed</td><td>'+scores[1]+'</td><td>'+scores[0]+'</td></tr></tbody></table></div></section>';
+ const sections=[
+  ["Passing",p=>p.passAtt>0,[["CMP","passComp"],["ATT","passAtt"],["YDS","passYds"],["TD","passTd"],["INT","int"]]],
+  ["Rushing",p=>p.rushAtt>0,[["ATT","rushAtt"],["YDS","rushYds"],["TD","rushTd"]]],
+  ["Receiving",p=>p.rec>0,[["REC","rec"],["YDS","recYds"],["TD","recTd"]]],
+  ["Defense",p=>p.tackles+p.sacks+p.defInt+p.forcedFumbles>0,[["TKL","tackles"],["SACK","sacks"],["INT","defInt"],["FF","forcedFumbles"]]],
+  ["Kicking",p=>p.fga>0||p.punts>0,[["FGM","fgm"],["FGA","fga"],["PUNTS","punts"]]]
+ ];
+ for(let side=0;side<2;side++){
+  const id=ids[side],roster=players.filter(p=>p.teamId===id);
+  html+='<section class="panel"><h2>'+safe(labels[side])+' — Individual Player Statistics</h2>';
+  if(!roster.length)html+='<p class="muted">Individual box score unavailable for this game. Older games may predate this feature.</p>';
+  for(const [title,filter,cols] of sections){
+   const group=roster.filter(filter);
+   if(!group.length)continue;
+   html+='<h3>'+title+'</h3><div class="wff-stat-table"><table><thead><tr><th>Player</th>'+cols.map(([label])=>'<th>'+label+'</th>').join('')+'</tr></thead><tbody>';
+   for(const p of group)html+='<tr><td>'+safe(p.name)+' <small>'+safe(p.position)+'</small></td>'+cols.map(([,key])=>'<td>'+safe(p[key]||0)+'</td>').join('')+'</tr>';
+   html+='</tbody></table></div>';
+  }
+  html+='</section>';
+ }
+ return html;
+}
