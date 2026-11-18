@@ -26,9 +26,9 @@ const WFF_SCHEMES={
 };
 const WFF_DEF_SCHEMES={
  "4-3":["4-3 Over","4-3 Under","4-3 Wide","4-3 Bear","Nickel 4-2-5","Nickel Double A","Dime 4-1-6","Goal Line 6-2"],
- "3-4":["3-4 Odd","3-4 Even","3-4 Bear","3-4 Under","Nickel 2-4-5","3-3-5 Stack","3-3-5 Bear","Dime 3-2-6","Goal Line 5-3"],
+ "3-4":["3-4 Odd","3-4 Even","3-4 Bear","3-4 Under","Nickel 2-4-5","3-3-5 Stack","3-3-5 Over","3-3-5 Bear","Dime 3-2-6","Goal Line 5-3"],
  "4-2-5":["Nickel 4-2-5","Nickel Double A","4-3 Over","Dime 4-1-6","Big Nickel","Goal Line 6-2"],
- "3-3-5":["3-3-5 Stack","3-3-5 Bear","3-3-5 Odd","Nickel 2-4-5","Dime 3-2-6","3-4 Odd","Goal Line 5-3"]
+ "3-3-5":["3-3-5 Stack","3-3-5 Over","3-3-5 Under","3-3-5 Bear","3-3-5 Odd","Nickel 2-4-5","Dime 3-2-6","3-4 Odd","Goal Line 5-3"]
 };
 const WFF_DEF_CALLS=["Cover 1 Robber","Cover 2 Man","Cover 2 Zone","Cover 3 Sky","Cover 3 Buzz","Cover 4 Quarters","Cover 6","Match Quarters","Tampa 2","Fire Zone Blitz","Sam Blitz","Mike Blitz","Double A Blitz","Edge Pressure","Run Fit"];
 function wffPlayLibrary(style){
@@ -37,7 +37,7 @@ function wffPlayLibrary(style){
   if(form==="Goal Line"&&kind==="pass"&&!/Play Action|Slants|Boot/.test(concept))continue;
   if(form==="I-Form"&&/Four Verticals|Screens/.test(concept))continue;
   if(form==="Shotgun"&&/Iso|Toss/.test(concept))continue;
-  const personnel=form==="Goal Line"?"23":form==="I-Form"||form==="Strong I"||form==="Weak I"?"21":form==="Shotgun"?"11":form==="Pistol"?"11":variant==="Wing"||variant==="Tight"?"12":"11";
+  const personnel=form==="Goal Line"?"23":form==="I-Form"&&variant==="Twin TE"?"22":form==="I-Form"||form==="Strong I"||form==="Weak I"?"21":form==="Shotgun"&&variant==="Empty"?"10":form==="Shotgun"?"11":form==="Pistol"?"11":variant==="Wing"||variant==="Tight"?"12":"11";
   out.push({id:[form,variant,concept].join("|"),formation:form,variant,concept,kind,personnel});
  }
  // Deterministic distributed sampling so every permitted formation contributes.
