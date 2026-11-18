@@ -22,7 +22,7 @@ function wffLiveStart(state,redraw){
 }
 function wffLiveSchedule(){wffLiveStop();if(!wffLive||wffLive.paused||wffLive.breakType||wffLive.complete)return;wffLiveTimer=setTimeout(()=>{wffLiveTimer=null;wffLiveStep()},WFF_LIVE_SPEED[wffLive.speed])}
 function wffLiveEvent(message,major=false){const l=wffLive;l.events.unshift({q:l.clock.quarter,time:wffClockTime(l.clock.remaining),message,major});l.events=l.events.slice(0,50)}
-function wffLiveChangePossession(){const l=wffLive;l.possession=1-l.possession;l.field=22+Math.floor(l.r()*14);l.down=1;l.toGo=10;l.clock.running=false}
+function wffLiveChangePossession(spot){const l=wffLive;wffFieldSwitch(l,spot)}
 function wffLiveEndPeriod(){
  const l=wffLive,c=l.clock;if(c.remaining>0)return false;
  if(c.quarter===4){wffLiveFinish();return true}
@@ -52,7 +52,7 @@ function wffLiveStep(){
  if(l.down===4){
  const decision=wffCoachFourthCall({yard:l.field,toGo:l.toGo,quarter:c.quarter,seconds:c.remaining,lead,timeouts:c.timeouts[side],aggression:profile.aggression,judgment:profile.judgment,seed:l.state.week+"-"+l.playCount+"-"+side,wind:l.weather.wind,weather:l.weather.condition});
  const kicker=wffKickerForTeam(l.state,side===0?l.us.id:l.opp.id);const kick=wffKickDecision(kicker,l.field,{...l.weather,endHalf:(c.quarter===2||c.quarter===4)&&c.remaining<=12});if(decision.call==="field_goal"&&!kick.advisable)decision.call=(l.field>=50&&l.toGo<=3)?"go":"punt";if(decision.call==="punt"){wffLiveEvent((side===0?l.us.city:l.opp.city)+" punts on fourth down.");wffClockSnap(c,"run",{duration:7});wffLiveChangePossession();wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
- if(decision.call==="field_goal"){const made=l.r()<kick.probability;l.stats[side].plays++;l.playCount++;wffClockSnap(c,"run",{duration:5});if(made)l.score[side]+=3;wffAudio.event(made?"fieldGoalGood":"fieldGoalMiss",side,l);wffBroadcast.call(made?"fieldGoalGood":"fieldGoalMiss",l,side);wffLiveEvent((side===0?l.us.city:l.opp.city)+" "+(made?"makes":"misses")+" a "+Math.round(kick.distance)+"-yard field goal by "+kicker.name+" ("+kicker.archetype+").",true);wffLiveChangePossession();wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
+ if(decision.call==="field_goal"){const made=l.r()<kick.probability;l.stats[side].plays++;l.playCount++;wffClockSnap(c,"run",{duration:5});if(made)l.score[side]+=3;wffAudio.event(made?"fieldGoalGood":"fieldGoalMiss",side,l);wffBroadcast.call(made?"fieldGoalGood":"fieldGoalMiss",l,side);wffLiveEvent((side===0?l.us.city:l.opp.city)+" "+(made?"makes":"misses")+" a "+Math.round(kick.distance)+"-yard field goal by "+kicker.name+" ("+kicker.archetype+").",true);wffLiveChangePossession(l.field);wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
  wffLiveEvent((side===0?l.us.city:l.opp.city)+" goes for it on fourth and "+l.toGo+".",true);wffAudio.event("critical",1-side,l);wffBroadcast.call("fourthTry",l,side);
  }
  if(l.down===3&&l.toGo<=3&&c.quarter>=3&&Math.abs(lead)<=8)wffAudio.event("critical",1-side,l);
@@ -71,7 +71,7 @@ function wffLiveStep(){
  }
  if(turnoverPass?.type==="nearPick"){
   wffClockSnap(c,"pass_incomplete",{duration:6});const st=l.stats[side];st.plays++;st.pass++;l.playCount++;
-  wffLiveEvent(wffTurnoverRecord(l,side,turnoverPass),true);l.down++;if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs.",true);wffLiveChangePossession()}
+  wffLiveEvent(wffTurnoverRecord(l,side,turnoverPass),true);l.down++;if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs.",true);wffLiveChangePossession(l.field)}
   wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
  const fumble=!kneel&&(!pass||complete)?wffTurnoverFumble(l,side,{pass,heavyHit:defenseFocus==="run"}):null;
@@ -79,7 +79,7 @@ function wffLiveStep(){
   wffClockSnap(c,"run",{duration:7});const st=l.stats[side];st.plays++;if(pass)st.pass++;else st.rush++;l.playCount++;
   wffLiveEvent(wffTurnoverRecord(l,side,fumble),true);
   if(fumble.recoveredByDefense){wffAudio.event("turnover",1-side,l);wffLiveChangePossession()}
-  else{l.down++;if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs after recovered fumble.",true);wffLiveChangePossession()}}
+  else{l.down++;if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs after recovered fumble.",true);wffLiveChangePossession(l.field)}}
   wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
  if(l.formation)l.formation.playType=kneel?"Kneel":pass?"Pass":"Run";
@@ -89,7 +89,7 @@ function wffLiveStep(){
  const st=l.stats[side];st.plays++;l.playCount++;if(pass)st.pass++;else st.rush++;st.yards+=gain;
  const name=side===0?l.us.city:l.opp.city;
  const label=kneel?"Quarterback kneels to protect the lead.":pass?(complete?"Pass complete for "+gain+" yards.":"Pass incomplete; game clock stops."):"Run gains "+gain+" yards.";
- const detailed=" "+name+" — "+label+" ("+l.down+"&"+l.toGo+" at "+l.field+")";
+ const detailed=" "+name+" — "+label+" ("+wffFieldDown(l)+")";
  wffLiveEvent(detailed);
  l.field+=gain;
  if(l.field>=100){l.score[side]+=7;wffAudio.event("touchdown",side,l);wffBroadcast.call("touchdown",l,side);wffLiveEvent(name+" scores a touchdown! Extra point good.",true);wffLiveChangePossession()}
