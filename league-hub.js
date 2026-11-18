@@ -160,20 +160,33 @@ function wffGameBoxScoreView(state,game){
 
 function wffPlayerProfileLink(p){return '<button type="button" class="wff-player-link" data-wff-player="'+esc(String(p.teamId))+'|'+esc(p.name)+'|'+esc(p.position)+'">'+esc(p.name)+'</button>'}
 function wffPlayerProfileView(state,teamId,name,position){
+ wffEnsurePlayerRegistry(state);
  const roster=wffStatRoster(state,teamId),player=roster.find(p=>p.name===name&&p.position===position);
- const stats=wffSeasonPlayers(state).find(p=>p.teamId===teamId&&p.name===name&&p.position===position);
- const team=teams[teamId],safe=x=>esc(String(x??"—"));
- if(!team)return '<section class="panel"><h2>Player unavailable</h2></section>';
- const seed=dnaHash(teamId+"|"+name+"|"+position);
- const hometowns=["Cedar Falls","Lakewood","Riverton","Westhaven","Pine Ridge","Brookfield","Stonebridge","Fairview","Ashford","Northfield"];
- const colleges=["North Valley University","Coastal State","Redwood Tech","Great Lakes College","Prairie State","Summit University","Atlantic Polytechnic","Western Ridge","Central Plains University","Lakeshore State"];
- const hometown=hometowns[seed%hometowns.length],college=colleges[Math.floor(seed/13)%colleges.length];
+ const record=wffRegisterPlayer(state,teamId,player||{name,position});
+ const id=record.id,stats=wffSeasonPlayers(state).find(p=>wffPlayerId(p.teamId,p)===id);
+ const team=teams[record.teamId]||teams[teamId],safe=x=>esc(String(x??"—"));
  const metric=(label,value)=>'<div class="stat"><small>'+label+'</small><b>'+safe(value)+'</b></div>';
- const contract=player?.contract||state.roster?.find(p=>p.name===name&&p.position===position)?.contract;
- const years=player?.yearsPro??player?.experience;
- let html='<section class="panel"><h2>'+safe(name)+' <small>'+safe(position)+'</small></h2><p>'+wffLogo(team,32)+' '+safe(teamLabel(team))+'</p><div class="grid">'+metric("Position",position)+metric("Age",player?.age)+metric("Height",player?.height?dnaFormatHeight(player.height):"Not recorded")+metric("Weight",player?.weight?player.weight+" lb":"Not recorded")+metric("Overall",player?.overall)+metric("Archetype",player?.archetype)+metric("Experience",years!=null?years+" years":"Not recorded")+metric("Rookie",player?.rookie===true?"Yes":years===0?"Yes":"Not confirmed")+'</div><h3>Player background</h3><p>Fictional hometown: '+safe(hometown)+' • Fictional college: '+safe(college)+'</p><p class="muted">Background is a deterministic fictional placeholder until player biographies are stored. It is not an established scouting record.</p><h3>Contract</h3><p>'+safe(contract?.years??player?.contractYears??"Contract term not recorded")+(contract?.years!=null?" years":"")+' • '+(contract?.salary!=null?safe(contract.salary):"Salary not recorded")+'</p></section>';
- html+='<section class="panel"><h2>Current Season Statistics</h2><p class="muted">Individual statistics are modeled unless explicitly recorded by the live game engine. Complete career histories are not yet stored.</p>';
+ const contract=player?.contract||record.contract;
+ const years=player?.yearsPro??player?.experience??record.yearsPro;
+ let html='<section class="panel"><h2>'+safe(record.name)+' <small>'+safe(record.position)+'</small></h2><p>'+wffLogo(team,32)+' '+safe(teamLabel(team))+'</p><div class="grid">'+metric("Position",record.position)+metric("Age",player?.age??record.age)+metric("Height",(player?.height??record.height)?dnaFormatHeight(player?.height??record.height):"Not recorded")+metric("Weight",(player?.weight??record.weight)?(player?.weight??record.weight)+" lb":"Not recorded")+metric("Overall",player?.overall)+metric("Archetype",player?.archetype)+metric("Experience",years!=null?years+" years":"Not recorded")+metric("Rookie",player?.rookie===true||record.rookie?"Yes":years===0?"Yes":"Not confirmed")+'</div><h3>Player background</h3><p>Hometown: '+safe(record.hometown)+' • College: '+safe(record.college)+'</p><p class="muted">Fictional biography saved to this franchise. Existing players receive a consistent generated background.</p><h3>Contract</h3><p>'+safe(contract?.years??player?.contractYears??"Contract term not recorded")+(contract?.years!=null?" years":"")+' • '+(contract?.salary!=null?safe(contract.salary):"Salary not recorded")+'</p></section>';
+ html+='<section class="panel"><h2>Current Season Statistics</h2><p class="muted">Individual production is currently modeled, except explicitly tracked live events.</p>';
  if(!stats)html+='<p>No season statistics available.</p>';
  else for(const [title,filter,cols] of WFF_PLAYER_STAT_SECTIONS){if(!filter(stats))continue;html+='<h3>'+title+'</h3><div class="grid">'+cols.map(([label,key])=>metric(label,wffPlayerMetric(stats,key))).join("")+'</div>'}
- return html+'</section><section class="panel"><h2>Career Statistics</h2><p class="muted">Historical season-by-season player statistics are not yet retained; career totals cannot be verified. Future seasons will need persistent player identities and archived statistics.</p></section>';
+ html+='</section><section class="panel"><h2>Career Statistics</h2>';
+ const career=wffPlayerCareerTotals(state,id),currentYear=state.finance?.year;
+ const rows=career.rows.slice();
+ if(stats&&!rows.some(r=>r.year===currentYear))rows.push({...stats,year:currentYear,playerId:id});
+ rows.sort((a,b)=>a.year-b.year);
+ if(!rows.length)html+='<p>No completed statistical seasons yet.</p>';
+ else{
+  const total={};for(const field of WFF_STAT_FIELDS)total[field]=rows.reduce((sum,r)=>sum+(r[field]||0),0);
+  html+='<p>'+rows.length+' season(s) of available WFF statistics. Historical seasons are saved independently of the current roster.</p>';
+  for(const [title,filter,cols] of WFF_PLAYER_STAT_SECTIONS){if(!filter(total))continue;
+   html+='<h3>'+title+' — Career Totals</h3><div class="grid">'+cols.map(([label,key])=>metric(label,wffPlayerMetric(total,key))).join("")+'</div>';
+  }
+  html+='<h3>Season-by-Season</h3><div class="wff-stat-table"><table><thead><tr><th>Year</th><th>Team</th><th>Pass YDS</th><th>Rush YDS</th><th>Rec YDS</th><th>TKL</th><th>SACK</th></tr></thead><tbody>';
+  for(const r of rows)html+='<tr><td>'+safe(r.year)+'</td><td>'+safe(teams[r.teamId]?.city)+'</td><td>'+safe(r.passYds||0)+'</td><td>'+safe(r.rushYds||0)+'</td><td>'+safe(r.recYds||0)+'</td><td>'+safe(r.tackles||0)+'</td><td>'+safe(r.sacks||0)+'</td></tr>';
+  html+='</tbody></table></div>';
+ }
+ return html+'</section>';
 }
