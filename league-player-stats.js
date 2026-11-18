@@ -2,6 +2,34 @@
 // League-wide deterministic box-score simulation for fictional WFF fixtures.
 // Stats are modeled, not derived from the detailed live play-by-play.
 const WFF_STAT_FIELDS=["passAtt","passComp","passYds","passTd","int","rushAtt","rushYds","rushTd","rec","recYds","recTd","tackles","sacks","defInt","forcedFumbles","fgm","fga","punts"];
+// Derived rate statistics are calculated from raw totals, never averaged across games.
+function wffPlayerMetric(p,key){
+ const n=k=>Number(p[k]||0),ratio=(a,b)=>b?(a/b).toFixed(1):"—";
+ if(key==="completionPct")return n("passAtt")?((100*n("passComp"))/n("passAtt")).toFixed(1)+"%":"—";
+ if(key==="passYpa")return ratio(n("passYds"),n("passAtt"));
+ if(key==="passYpc")return ratio(n("passYds"),n("passComp"));
+ if(key==="passerRating"){
+  const att=n("passAtt");if(!att)return "—";
+  const clamp=v=>Math.max(0,Math.min(2.375,v));
+  const a=clamp((n("passComp")/att-.3)*5),b=clamp((n("passYds")/att-3)*.25);
+  const c=clamp(n("passTd")/att*20),d=clamp(2.375-n("int")/att*25);
+  return (((a+b+c+d)/6)*100).toFixed(1);
+ }
+ if(key==="tdIntRatio")return n("int")?ratio(n("passTd"),n("int")):n("passAtt")?"∞":"—";
+ if(key==="rushAvg")return ratio(n("rushYds"),n("rushAtt"));
+ if(key==="recAvg")return ratio(n("recYds"),n("rec"));
+ if(key==="catchPct")return p.targets==null?"—":n("targets")?((100*n("rec"))/n("targets")).toFixed(1)+"%":"—";
+ if(key==="fgPct")return n("fga")?((100*n("fgm"))/n("fga")).toFixed(1)+"%":"—";
+ if(key==="tacklesPerGame")return p.gamesPlayed?ratio(n("tackles"),n("gamesPlayed")):"—";
+ return p[key]??0;
+}
+const WFF_PLAYER_STAT_SECTIONS=[
+ ["Passing",p=>p.passAtt>0,[["CMP","passComp"],["ATT","passAtt"],["CMP%","completionPct"],["YDS","passYds"],["Y/A","passYpa"],["Y/C","passYpc"],["TD","passTd"],["INT","int"],["RATE","passerRating"]]],
+ ["Rushing",p=>p.rushAtt>0,[["ATT","rushAtt"],["YDS","rushYds"],["AVG","rushAvg"],["TD","rushTd"]]],
+ ["Receiving",p=>p.rec>0,[["REC","rec"],["YDS","recYds"],["AVG","recAvg"],["TD","recTd"]]],
+ ["Defense",p=>(p.tackles||0)+(p.sacks||0)+(p.defInt||0)+(p.forcedFumbles||0)>0,[["TKL","tackles"],["SACK","sacks"],["INT","defInt"],["FF","forcedFumbles"]]],
+ ["Kicking & Punting",p=>(p.fga||0)+(p.punts||0)>0,[["FGM","fgm"],["FGA","fga"],["FG%","fgPct"],["PUNTS","punts"]]]
+];
 function wffStatRoster(state,id){
  if(id===state.teamId)return state.roster;
  return makeRoster(id).map((p,i)=>dnaBuild(p,id,i,false));
