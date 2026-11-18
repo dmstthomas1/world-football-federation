@@ -41,9 +41,24 @@ function wffOpponentPlan(state,oppId){
  const own=wffTeamScheme(state,oppId),user=wffTeamScheme(state,state.teamId);
  const ownSkills=wffSkillProfile(state,oppId),userSkills=wffSkillProfile(state,state.teamId);
  const r=wffRandom(oppId,"gameplan|"+wffPlanKey(state)+"|"+state.teamId);
- const o=ownSkills.run>ownSkills.pass+3?["ground","playaction","balanced"]:ownSkills.pass>ownSkills.run+3?["quick","deep","tempo","balanced"]:/Power Run|Wide Zone/.test(own.offense)?["ground","playaction","balanced"]:/Air Raid|Spread|Run and Shoot|Run and Gun/.test(own.offense)?["quick","deep","tempo","balanced"]:["balanced","protect","playaction","deep"];
- const d=userSkills.run>userSkills.pass+3?["run","run","balanced","blitz"]:userSkills.pass>userSkills.run+3?["coverage","man","blitz","balanced"]:/Power Run|Wide Zone/.test(user.offense)?["run","balanced","blitz"]:/Air Raid|Spread|Run and Shoot|Run and Gun|Vertical/.test(user.offense)?["coverage","man","blitz","balanced"]:["balanced","run","coverage","disguise"];
- return {offense:o[Math.floor(r()*o.length)],defense:d[Math.floor(r()*d.length)]};
+ const offenseWeights={balanced:2,ground:1,quick:1,deep:1,protect:1,tempo:1,playaction:1};
+ if(ownSkills.run>ownSkills.pass+4){offenseWeights.ground+=3;offenseWeights.playaction+=2}
+ if(ownSkills.pass>ownSkills.run+4){offenseWeights.quick+=2;offenseWeights.deep+=2}
+ if(/Power Run|Wide Zone/.test(own.offense)){offenseWeights.ground+=3;offenseWeights.playaction+=2}
+ if(/Air Raid|Spread|Run and Shoot|Run and Gun|Vertical/.test(own.offense)){offenseWeights.quick+=2;offenseWeights.tempo+=2;offenseWeights.deep+=1}
+ if(userSkills.passDefense<userSkills.runDefense-5)offenseWeights.deep+=2;
+ if(userSkills.runDefense<userSkills.passDefense-5)offenseWeights.ground+=2;
+ const defenseWeights={balanced:3,run:1,blitz:1,coverage:1,man:1,contain:1,disguise:1};
+ if(/Power Run|Wide Zone/.test(user.offense))defenseWeights.run+=5;
+ if(/Air Raid|Spread|Run and Shoot|Run and Gun|Vertical/.test(user.offense)){defenseWeights.coverage+=3;defenseWeights.man+=2}
+ if(userSkills.run>userSkills.pass+4)defenseWeights.run+=4;
+ if(userSkills.pass>userSkills.run+4){defenseWeights.coverage+=3;defenseWeights.man+=2}
+ if(ownSkills.runDefense<ownSkills.passDefense-5)defenseWeights.run=Math.max(1,defenseWeights.run-2);
+ if(ownSkills.passDefense<ownSkills.runDefense-5)defenseWeights.coverage=Math.max(1,defenseWeights.coverage-2);
+ if(ownSkills.passDefense>=userSkills.pass+5)defenseWeights.blitz+=2;
+ // A coordinator may still pick a counter-tendency, disguise or balanced plan.
+ const choose=weights=>{const total=Object.values(weights).reduce((a,b)=>a+b,0);let roll=r()*total;for(const [name,weight] of Object.entries(weights)){roll-=weight;if(roll<0)return name}return "balanced"};
+ return {offense:choose(offenseWeights),defense:choose(defenseWeights)};
 }
 function wffGameplanView(state,opp){
  const p=wffPlan(state),ours=wffTeamScheme(state,state.teamId),theirs=wffTeamScheme(state,opp.id),cpu=wffOpponentPlan(state,opp.id);
