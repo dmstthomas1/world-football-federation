@@ -30,31 +30,62 @@ function wffSeasonSchedule(year){
   crossRounds.push(games);
  }
  const rounds=[...divisionRounds,...crossRounds];
- // Spread the 17 full rounds across 18 weeks. Eight disjoint fixtures are
- // moved to Week 18, creating one bye each for the 16 affected teams.
- for(let i=0;i<17;i++)weeks[i]=rounds[i].map(g=>({...g,week:i+1,id:""+(i+1)+"-"+g.home+"-"+g.away}));
- const moved=[],used=new Set();
- for(let w=4;w<17&&moved.length<8;w++){
-  const options=weeks[w].filter(g=>!used.has(g.home)&&!used.has(g.away));
-  if(!options.length)continue;
-  const g=options[Math.floor(rand()*options.length)];
-  weeks[w]=weeks[w].filter(x=>x!==g);
-  moved.push({...g,week:18,id:"18-"+g.home+"-"+g.away});
-  used.add(g.home);used.add(g.away);
+ // All 32 clubs must take exactly one bye in Weeks 7–12. Move a
+ // disjoint set of 16 games from those weeks into the full Week 18 slate.
+ for(let i=0;i<17;i++)weeks[i]=rounds[i].map(g=>({...g,week:i+1,id:(i+1)+"-"+g.home+"-"+g.away}));
+ const candidates=[];
+ for(let w=6;w<=11;w++)for(const g of weeks[w])candidates.push({weekIndex:w,game:g});
+ // Seeded deterministic search for a perfect matching across the 32 teams.
+ const choices=Array.from({length:32},()=>[]);
+ for(let i=0;i<candidates.length;i++){
+  const {game}=candidates[i];choices[game.home].push(i);choices[game.away].push(i);
  }
- if(moved.length!==8)throw Error("Unable to distribute season byes");
- weeks[17]=moved;
- const counts=Array(32).fill(0),byes=Array(32).fill(0);
- for(const week of weeks){
+ const order=candidates.map((_,i)=>({i,sort:rand()})).sort((a,b)=>a.sort-b.sort);
+ const rank=new Map(order.map((o,i)=>[o.i,i]));
+ for(const arr of choices)arr.sort((a,b)=>rank.get(a)-rank.get(b));
+ const selected=[],used=new Set();
+ function findMatching(){
+  if(used.size===32)return true;
+  let best=null,options=null;
+  for(let t=0;t<32;t++)if(!used.has(t)){
+   const open=choices[t].filter(i=>!used.has(candidates[i].game.home)&&!used.has(candidates[i].game.away));
+   if(!open.length)return false;
+   if(!options||open.length<options.length){best=t;options=open}
+  }
+  for(const i of options){
+   const g=candidates[i].game;
+   used.add(g.home);used.add(g.away);selected.push(i);
+   if(findMatching())return true;
+   selected.pop();used.delete(g.home);used.delete(g.away);
+  }
+  return false;
+ }
+ if(!findMatching()||selected.length!==16)throw Error("Unable to assign midseason byes");
+ for(const i of selected){
+  const {weekIndex,game}=candidates[i];
+  weeks[weekIndex]=weeks[weekIndex].filter(g=>g!==game);
+  weeks[17].push({...game,week:18,id:"18-"+game.home+"-"+game.away});
+ }
+ const counts=Array(32).fill(0),byes=Array(32).fill(0),byeWeeks=Array(32).fill(null);
+ for(let w=0;w<18;w++){
   const seen=new Set();
-  for(const g of week){if(seen.has(g.home)||seen.has(g.away))throw Error("Schedule conflict");seen.add(g.home);seen.add(g.away);counts[g.home]++;counts[g.away]++}
-  for(let t=0;t<32;t++)if(!seen.has(t))byes[t]++;
+  for(const g of weeks[w]){
+   if(seen.has(g.home)||seen.has(g.away))throw Error("Schedule conflict");
+   seen.add(g.home);seen.add(g.away);counts[g.home]++;counts[g.away]++;
+  }
+  for(let t=0;t<32;t++)if(!seen.has(t)){byes[t]++;byeWeeks[t]=w+1;if(w<6||w>11)throw Error("Bye outside Weeks 7–12")}
  }
- if(counts.some(n=>n!==17)||byes.some(n=>n!==1))throw Error("Invalid season game count");
- return {year,weeks,counts,byes,version:2};
+ if(counts.some(n=>n!==17)||byes.some(n=>n!==1)||weeks[17].length!==16)throw Error("Invalid season game count");
+ return {year,weeks,counts,byes,byeWeeks,version:3};
 }
 function wffScheduleInit(state){
- if(state.leagueSchedule?.year===state.finance.year&&state.leagueSchedule.version===2)return false;
+ if(state.leagueSchedule?.year===state.finance.year&&state.leagueSchedule.version===3)return false;
+ const previous=state.leagueSchedule;
+ // Do not erase completed season results when migrating an active franchise.
+ if(previous?.year===state.finance.year&&Object.keys(state.leagueResults||{}).length){
+  // Keep the in-progress schedule intact; the new rule starts next season.
+  return false;
+ }
  state.leagueSchedule=wffSeasonSchedule(state.finance.year);
  state.leagueResults={};state.leagueBoxScores={};state.postseason=null;return true;
 }
@@ -123,7 +154,7 @@ function wffPostseasonRound(state){
 }
 function wffScheduleView(state){
  wffScheduleInit(state);const s=state.leagueSchedule,rows=wffStandings(state);
- let html='<section class="panel"><h2>'+s.year+' Regular Season Schedule</h2><p>17 games across 18 weeks • Six divisional games • One bye</p>';
+ let html='<section class="panel"><h2>'+s.year+' Regular Season Schedule</h2><p>17 games across 18 weeks • Six divisional games • One bye in Weeks 7–12</p>';
  for(let i=0;i<18;i++){
   const g=s.weeks[i].find(g=>g.home===state.teamId||g.away===state.teamId);
   const result=g&&state.leagueResults[g.id],opponent=g?teams[g.home===state.teamId?g.away:g.home]:null;
