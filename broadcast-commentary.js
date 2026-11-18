@@ -14,7 +14,7 @@ const wffBroadcast={
   const synth=window.speechSynthesis;if(synth.speaking||synth.pending){if(!priority)return;this.stop()}
   const u=new SpeechSynthesisUtterance(message);const v=this.select();if(v)u.voice=v;
   u.lang=v?.lang||"en-US";u.rate=Math.max(.8,Math.min(1.25,Number(wffAudio.settings.speechRate)||1.02));
-  u.pitch=1;u.volume=Math.max(0,Math.min(1,Number(wffAudio.settings.speechVolume??70)/100));
+  u.pitch=.96;u.volume=Math.max(0,Math.min(1,Number(wffAudio.settings.speechVolume??70)/100));
   try{synth.speak(u)}catch{}
  },
  call(type,live,side=0,details={}){
@@ -23,6 +23,11 @@ const wffBroadcast={
   const close=Math.abs(live.score[0]-live.score[1])<=8,late=live.clock.quarter===4;
   const plays=live.playCount;
   const variants={
+   interception:["Picked off! The defense comes away with the football!","Intercepted! A huge change of possession."],
+   sack:["The pocket collapses, and the quarterback goes down!","Pressure gets home! A big sack for the defense."],
+   throwaway:["Nothing open, and the quarterback wisely throws it away.","Pressure coming. He gets rid of it safely."],
+   incomplete:["The pass falls incomplete.","Can't connect on that one. They'll have to try again."],
+   runStop:["Nowhere to go! The defense shuts that down.","They meet the runner at the line. No room there."],
    touchdown:[team+" finds the end zone! Touchdown!",team+" scores! What a drive!", "Touchdown, "+team+"! The offense finishes the job."],
    fieldGoalGood:[team+" puts it through the uprights.", "The kick is good for "+team+"."],
    fieldGoalMiss:["No good! "+team+" misses the field goal.", "That kick is off target. No points for "+team+"."],
@@ -36,7 +41,7 @@ const wffBroadcast={
   let lines=variants[type];if(!lines)return;
   if(type==="fourthFail"&&late&&close)lines=["What a stand! That fourth-down stop could decide the game."];
   const phrase=lines[(plays+live.clock.quarter+side)%lines.length];
-  this.speak(phrase,live,["touchdown","fourthFail","fieldGoalGood","fieldGoalMiss","final"].includes(type));
+  this.speak(phrase,live,["touchdown","interception","fourthFail","fieldGoalGood","fieldGoalMiss","final"].includes(type));
  },
  controls(){
   const s=wffAudio.settings;
