@@ -138,12 +138,14 @@ function wffGameBoxScoreView(state,game){
  const labels=[game.home,game.away];
  const scores=[game.homeScore,game.awayScore];
  const teamStats=game.stats||[];
- const statRows=[["Offensive plays","plays"],["Passing plays","pass"],["Rushing plays","rush"],["Total offensive yards","yards"],["First downs","firstDowns"],["Turnovers","turnovers"]];
+ const statRows=[["Offensive plays","plays"],["Passing plays","pass"],["Rushing plays","rush"],["Total offensive yards","yards"],["First downs","firstDowns"],["Turnovers","turnovers"],["Sacks allowed","sacksAllowed"],["Sack yards lost","sackYardsLost"],["Defensive sacks","sacks"]];
  const safe=v=>esc(String(v));
  let html='<section class="panel"><h2>Final Game Box Score • Week '+safe(game.week)+'</h2><div class="score">'+safe(labels[0])+' '+safe(scores[0])+' — '+safe(scores[1])+' '+safe(labels[1])+'</div><p class="muted">Team totals are recorded from the live simulator. Individual player statistics are modeled estimates, not attributed live plays.</p></section>';
  html+='<section class="panel"><h2>Team Offense & Defense</h2><div class="wff-stat-table"><table><thead><tr><th>Statistic</th><th>'+safe(labels[0])+'</th><th>'+safe(labels[1])+'</th></tr></thead><tbody>';
  for(const [name,key] of statRows)html+='<tr><td>'+name+'</td><td>'+safe(teamStats[0]?.[key]??"—")+'</td><td>'+safe(teamStats[1]?.[key]??"—")+'</td></tr>';
  html+='<tr><td>Points scored</td><td>'+scores[0]+'</td><td>'+scores[1]+'</td></tr><tr><td>Points allowed</td><td>'+scores[1]+'</td><td>'+scores[0]+'</td></tr></tbody></table></div></section>';
+ const actualSacks=game.liveSacks||[];
+ if(actualSacks.length)html+='<section class="panel"><h2>Recorded Quarterback Sacks</h2>'+actualSacks.map(p=>'<div class="line"><span>'+safe(p.name)+' ('+safe(p.position)+') • '+safe(teams[p.teamId]?.city||"Defense")+'</span><strong>'+safe(p.yards)+' yards</strong></div>').join('')+'</section>';
  const sections=[
   ["Passing",p=>p.passAtt>0,[["CMP","passComp"],["ATT","passAtt"],["YDS","passYds"],["TD","passTd"],["INT","int"]]],
   ["Rushing",p=>p.rushAtt>0,[["ATT","rushAtt"],["YDS","rushYds"],["TD","rushTd"]]],
