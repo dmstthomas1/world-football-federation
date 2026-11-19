@@ -15,10 +15,20 @@
 
 .wff-play-result-delayed{opacity:0;animation:wff-result-after-play var(--result-animation-duration,2.8s) linear forwards}@keyframes wff-result-after-play{0%,88%{opacity:0}100%{opacity:1}}@media(prefers-reduced-motion:reduce){.wff-play-result-delayed{animation:none;opacity:1}}
 .wff-field-play-summary{position:absolute;left:12px;bottom:12px;z-index:7;max-width:min(70%,480px);padding:9px 14px;background:rgba(5,17,28,.88);border:1px solid rgba(230,240,250,.55);border-left:4px solid #f4c85e;border-radius:8px;color:#fff;font-size:clamp(13px,1.6vw,19px);font-weight:850;letter-spacing:.025em;line-height:1.25;pointer-events:none;text-shadow:0 1px 3px #000}@media(max-width:640px){.wff-field-play-summary{left:7px;bottom:7px;padding:6px 9px;max-width:78%;font-size:12px}}
-.wff-halftime-graphic{background:#0a1d31;border:3px solid #d9ae4c;border-radius:14px;text-align:center;padding:22px;margin:12px 0;color:#fff}.wff-halftime-graphic h2{font-size:clamp(28px,5vw,52px);color:#f3cf71;margin:0}.wff-half-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;text-align:left}.wff-half-team{background:#183450;border-radius:9px;padding:12px}.wff-half-player{display:flex;flex-direction:column;border-top:1px solid #49637b;padding:9px 0;gap:3px}.wff-half-player span{color:#cbdceb;font-size:13px}@media(max-width:600px){.wff-half-grid{grid-template-columns:1fr}}</style>
+.wff-halftime-graphic{background:#0a1d31;border:3px solid #d9ae4c;border-radius:14px;text-align:center;padding:22px;margin:12px 0;color:#fff}.wff-halftime-graphic h2{font-size:clamp(28px,5vw,52px);color:#f3cf71;margin:0}.wff-half-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;text-align:left}.wff-half-team{background:#183450;border-radius:9px;padding:12px}.wff-half-player{display:flex;flex-direction:column;border-top:1px solid #49637b;padding:9px 0;gap:3px}.wff-half-player span{color:#cbdceb;font-size:13px}@media(max-width:600px){.wff-half-grid{grid-template-columns:1fr}}
+/* Full-field broadcast scoring interstitial: touchdown -> conversion -> kickoff. */
+.wff-scoring-screen{position:relative;isolation:isolate;min-height:390px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;overflow:hidden;text-align:center;background:radial-gradient(ellipse at 50% 35%,#17634d 0%,#0c3029 48%,#081c2c 100%);color:#fff;border:2px solid #d5b45e}
+.wff-scoring-glow{position:absolute;inset:-35%;z-index:-1;background:repeating-conic-gradient(from 10deg,transparent 0deg 16deg,rgba(255,214,98,.13) 18deg 21deg,transparent 24deg 40deg);animation:wff-scoring-pulse 4s ease-in-out infinite}
+.wff-scoring-ball{font-size:68px;filter:drop-shadow(0 5px 15px #0009)}
+.wff-scoring-title{font-size:clamp(2.1rem,7vw,4.8rem);font-weight:950;letter-spacing:.045em;color:#ffe18b;text-shadow:0 4px 14px #000}
+.wff-scoring-subtitle{font-size:clamp(1rem,2.5vw,1.45rem);font-weight:700;max-width:90%}
+.wff-scoring-score{font-weight:800;font-size:clamp(.9rem,2vw,1.2rem);padding:10px 20px;border:1px solid #ffffff77;border-radius:12px;background:#071b2caa}
+@keyframes wff-scoring-pulse{50%{transform:scale(1.07);opacity:.6}}
+@media(prefers-reduced-motion:reduce){.wff-scoring-glow{animation:none}}
+</style>
 </head>
 <body><div class="shell">
-<header class="top"><div><div class="brand">🌐 <span>WFF</span> WORLD FOOTBALL FEDERATION</div><div class="sub">A global American football franchise simulator</div></div><span class="tag">ALPHA 0.6.72 • PROTOTYPE</span></header>
+<header class="top"><div><div class="brand">🌐 <span>WFF</span> WORLD FOOTBALL FEDERATION</div><div class="sub">A global American football franchise simulator</div></div><span class="tag">ALPHA 0.6.73 • PROTOTYPE</span></header>
 <main id="app"></main><footer class="footer">WFF is an independent fictional football project. All teams and players are fictional. Alpha simulation and ratings are placeholders for testing.</footer>
 </div>
 <script src="franchise-storage.js?v=alpha0646-db1"></script>
@@ -41,7 +51,7 @@
 <script src="game-formations.js?v=alpha057-formations1"></script>
 <script src="field-position.js?v=alpha062-spots1"></script>
 <script src="live-field.js?v=alpha0672-kickvisual1"></script>
-<script src="live-game.js?v=alpha0672-kickreset1"></script>
+<script src="live-game.js?v=alpha0673-scoring1"></script>
 <script src="staff-market.js?v=alpha043-staff1"></script>
 <script src="league-player-stats.js?v=alpha0637-jerseys1"></script>
 <script src="league-hub.js?v=alpha0660-portraitnumbers1"></script>
