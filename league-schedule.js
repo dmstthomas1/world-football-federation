@@ -179,7 +179,8 @@ function wffScheduleView(state){
  for(let i=0;i<18;i++){
   const g=s.weeks[i].find(g=>g.home===state.teamId||g.away===state.teamId);
   const result=g&&state.leagueResults[g.id],opponent=g?teams[g.home===state.teamId?g.away:g.home]:null;
-  html+='<div class="line"><strong>Week '+(i+1)+'</strong><span>'+(g?(g.home===state.teamId?'vs ':'at ')+esc(teamLabel(opponent)):'BYE')+(result?' • '+result.homeScore+'–'+result.awayScore:'')+'</span></div>';
+  const nextGame=g&&i+1===state.week&&!result;
+  html+='<div class="line"><strong>Week '+(i+1)+'</strong><span>'+(g?(g.home===state.teamId?'vs ':'at ')+esc(teamLabel(opponent)):'BYE')+(result?' • '+result.homeScore+'–'+result.awayScore:'')+(nextGame?' <button class="btn" id="schedule-play-next">Simulate next game</button>':g&&!result?' • Upcoming (locked)':'')+'</span></div>';
  }
  html+='</section>';
  for(const conf of ["West","East"]){
@@ -198,4 +199,4 @@ function wffScheduleView(state){
  }else html+='<p class="muted">Playoff seeds will be determined after Week 18.</p>';
  return html+'</section>';
 }
-function wffScheduleBind(state,redraw){const b=document.getElementById("playoff-advance");if(b)b.onclick=()=>{if(wffPostseasonRound(state)){save();redraw()}}}
+function wffScheduleBind(state,redraw){const play=document.getElementById("schedule-play-next");if(play)play.onclick=()=>{if(wffNextMatch(state)){tab="sim";dashboard()}};const b=document.getElementById("playoff-advance");if(b)b.onclick=()=>{if(wffPostseasonRound(state)){save();redraw()}}}
