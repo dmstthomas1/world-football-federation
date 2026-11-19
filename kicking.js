@@ -22,7 +22,10 @@ function wffKickEstimate(k,fieldPosition,weather={}){
 function wffKickDecision(k,fieldPosition,weather={}){
  const e=wffKickEstimate(k,fieldPosition,weather);
  // Even exceptional long attempts require a compelling situation.
- const ordinary=e.distance<=56&&e.probability>=.38;
- const exceptional=e.distance<=62&&e.probability>=.20&&weather.endHalf===true;
- return {...e,advisable:ordinary||exceptional};
+ // A 52-yard attempt from the opponent's 35 is a normal professional FG choice
+ // if the kicker can reach it. Do not punt solely due to an arbitrary 38% cutoff.
+ const ordinary=e.reachable&&e.distance<=55&&e.probability>=.18;
+ const longRange=e.reachable&&e.distance<=58&&e.probability>=.28;
+ const exceptional=e.reachable&&e.distance<=62&&e.probability>=.20&&weather.endHalf===true;
+ return {...e,advisable:ordinary||longRange||exceptional};
 }
