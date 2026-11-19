@@ -219,15 +219,21 @@ function wffLiveStep(){
  const urgent=(c.quarter===2||c.quarter===4)&&c.remaining<=120&&lead<=0;
  // Defense may use a timeout before the offense burns the next play-clock interval.
  const defenseSide=1-side,defenseLead=l.score[defenseSide]-l.score[side];
- if(c.quarter===4&&defenseLead<0&&c.running&&c.timeouts[defenseSide]>0&&wffCoachTimeoutChoice({quarter:c.quarter,seconds:c.remaining,lead:defenseLead,ownTimeouts:c.timeouts[defenseSide],opponentHasBall:true,opponentRunning:true,down:l.down})){
+ if(wffClockTimeoutDecision({quarter:c.quarter,seconds:c.remaining,lead:defenseLead,ownTimeouts:c.timeouts[defenseSide],opponentHasBall:true,clockRunning:c.running,down:l.down,opponentTimeouts:c.timeouts[side],field:l.field})){
   c.timeouts[defenseSide]--;c.running=false;c.playClock=25;
-  wffLiveEvent((defenseSide===0?l.us.city:l.opp.city)+" calls timeout. "+c.timeouts[defenseSide]+" remaining.",true);
+  wffLiveEvent((defenseSide===0?l.us.city:l.opp.city)+" calls timeout to preserve the clock. "+c.timeouts[defenseSide]+" remaining.",true);
   wffLiveRender();wffLiveSchedule();return;
  }
  if(c.running){
   const userTempo=side===0?l.adjustments.tempo:"normal";
-  const wait=policy==="drain"||policy==="kneel"||userTempo==="drain"&&!urgent?38:urgent||userTempo==="hurry"?11:34;
-  wffClockRunoff(c,wait);c.playClock=Math.max(1,40-wait);
+  const wait=wffClockSnapWait({quarter:c.quarter,seconds:c.remaining,lead,tempo:urgent?"hurry":userTempo,opponentTimeouts:c.timeouts[defenseSide],field:l.field});
+  // The two-minute warning is a mandatory stoppage, not a clock interval that can be skipped.
+  if((c.quarter===2||c.quarter===4)&&c.remaining>120&&c.remaining-wait<=120&&!c.twoMinuteWarning[(c.quarter===2?0:1)]){
+   wffClockRunoff(c,c.remaining-120);c.twoMinuteWarning[c.quarter===2?0:1]=true;c.running=false;c.playClock=25;
+   wffLiveEvent("Two-minute warning. Official timeout.",true);
+   wffLiveRender();wffLiveSchedule();return;
+  }
+  wffClockRunoff(c,Math.min(wait,c.playClock-1));c.playClock=Math.max(1,c.playClock-wait);
   if(wffLiveEndPeriod()){wffLiveRender();return}
  }
  const prePenalty=wffPenaltyRoll(l,side,false,"pre");if(prePenalty){wffLiveEvent(wffPenaltyApply(l,prePenalty),true);c.running=false;wffLiveRender();wffLiveSchedule();return}
