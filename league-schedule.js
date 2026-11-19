@@ -199,4 +199,4 @@ function wffScheduleView(state){
  }else html+='<p class="muted">Playoff seeds will be determined after Week 18.</p>';
  return html+'</section>';
 }
-function wffScheduleBind(state,redraw){const play=document.getElementById("schedule-play-next");if(play)play.onclick=()=>{if(wffNextMatch(state)){tab="sim";dashboard()}};const b=document.getElementById("playoff-advance");if(b)b.onclick=()=>{if(wffPostseasonRound(state)){save();redraw()}}}
+function wffScheduleBind(state,redraw){const play=document.getElementById("schedule-play-next");if(play)play.onclick=()=>{if(wffNextMatch(state)){tab="sim";dashboard();save();wffLiveStart(state,drawView)}};const b=document.getElementById("playoff-advance");if(b)b.onclick=()=>{if(wffPostseasonRound(state)){save();redraw()}}}
