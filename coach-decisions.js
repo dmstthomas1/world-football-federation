@@ -47,16 +47,42 @@ function wffCoachFieldGoal(input){
  return {distance,max,probability,inRange:distance<=max&&yard<100};
 }
 function wffCoachFourthCall(input){
- const kick=wffCoachFieldGoal(input);
+ const yard=Math.max(0,Math.min(100,Number(input.yard)||0));
+ const toGo=Math.max(1,Number(input.toGo)||1);
+ const quarter=Number(input.quarter)||1,seconds=Number(input.seconds)||900,lead=Number(input.lead)||0;
+ const kickerProfile=input.kickerProfile;
+ const kick=kickerProfile&&typeof wffKickDecision==="function"
+  ?wffKickDecision(kickerProfile,yard,{...(input.weatherDetails||{}),endHalf:(quarter===2||quarter===4)&&seconds<=12})
+  :wffCoachFieldGoal(input);
+ const canKick=kick.advisable??kick.inRange;
+ const kickDistance=kick.distance??117-yard;
+ const late=quarter===4,behind=lead<0,deficit=-lead;
+ const lastChance=late&&behind&&seconds<=95;
+ const mustScoreTD=late&&behind&&deficit>=4&&seconds<=180;
+ const urgentPossession=late&&behind&&seconds<=180&&((deficit>=9)||(deficit>=4&&!canKick));
+ const desperate=lastChance||mustScoreTD||urgentPossession;
+ const standard=()=>({call:canKick?"field_goal":"punt",probability:0,reason:canKick?"Long yardage: take available field goal":"Long yardage: protect field position with punt",kick});
+ // Extreme distances are not routine fourth-down attempts, regardless of coach aggression.
+ if(toGo>=15&&!desperate)return standard();
+ if(toGo>=10&&!desperate)return standard();
+ if(toGo>=7&&!desperate){
+  // A fourth-and-long is not a realistic gamble simply because a coach is aggressive.
+  return standard();
+ }
+ if(desperate){
+  // A field goal cannot solve a touchdown deficit with almost no time remaining.
+  if(mustScoreTD||!canKick||lastChance&&deficit>=4)return {call:"go",probability:1,reason:"Late-game possession or touchdown required",kick};
+  if(canKick&&deficit<=3)return {call:"field_goal",probability:0,reason:"Field goal can tie or win late",kick};
+ }
+ // Inside one's own territory, punts are strongly preferred except urgent comebacks.
+ if(yard<40&&!desperate&&toGo>=2)return {call:"punt",probability:0,reason:"Protect field position",kick};
  const base=wffFourthDecision({...input,kicker:input.kicker||75});
- const yard=input.yard||0;
- const late=input.quarter===4&&input.seconds<=180;
- const trailing=input.lead<0;
- // Short, urgent fourth downs must preserve possession.
- if(late&&trailing&&input.seconds<=75)return {...base,call:"go",reason:"Must preserve possession late",kick};
- if(base.call==="field_goal"&&!kick.inRange)return {...base,call:yard>=45?"go":"punt",reason:"Outside realistic field-goal range",kick};
- if(base.call==="punt"&&kick.inRange&&!(late&&trailing&&input.lead<=-4&&input.lead>=-8))return {...base,call:"field_goal",reason:"Manage scoring opportunity",kick};
- if(base.call==="punt"&&yard>=55&&input.toGo<=2&&input.quarter!==4&&input.aggression>=65)return {...base,call:"go",reason:"Short yardage in opponent territory",kick};
+ if(base.call==="field_goal")return {call:canKick?"field_goal":"punt",probability:base.probability,reason:canKick?"Kicker in viable range":"Field goal beyond kicker range",kick};
+ if(base.call==="punt"&&canKick)return {...base,call:"field_goal",reason:"Scoring opportunity in kicker range",kick};
+ if(base.call==="go"&&toGo>=4&&!desperate)return {call:canKick?"field_goal":"punt",probability:base.probability,reason:"Medium-long conversion risk outweighs fourth-down gamble",kick};
+ if(base.call==="go"&&yard<45&&!desperate&&toGo>1)return {...base,call:"punt",reason:"Own-territory field position",kick};
+ if(base.call==="go"&&canKick&&toGo>=2&&!desperate)return {...base,call:"field_goal",reason:"Prefer viable field goal to risky conversion",kick};
+ if(base.call==="go"&&!canKick&&yard>=50&&toGo>2&&!desperate)return {...base,call:"punt",reason:"Avoid long conversion attempt in no-man's-land",kick};
  return {...base,kick};
 }
 function wffCoachConversionProbability(toGo,runStrength=75,defense=75,weatherFactor=1){
