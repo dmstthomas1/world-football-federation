@@ -28,13 +28,14 @@ function wffSpecialTeamsKick(l,type,kickingSide,receivingSide){
  // A new special-teams sequence owns the screen; retire the previous scoring graphic.
  l.fieldHighlight=null;l.playVisual=null;l.calledPlay=null;l.formation=null;l.broadcastBefore=null;
  const punt=type==="punt",safetyKick=type==="safety",origin=punt?l.field:safetyKick?20:35;
- const distance=punt?Math.round(38+l.r()*22):safetyKick?Math.round(45+l.r()*18):Math.round(57+l.r()*16);
- const landing=origin+distance;
- const touchback=landing>=100&&(punt?l.r()<.82:true);
- const returnYards=touchback?0:Math.round(5+l.r()*(punt?17:25));
- const receiveSpot=touchback?(punt?20:safetyKick?30:35):Math.max(1,Math.min(99,100-landing+returnYards));
+ const puntResult=punt?wffPuntEstimate(wffPunterForTeam(l.state,(kickingSide===0?l.us:l.opp).id),origin,l.weather,l.r):null;
+ const distance=puntResult?.distance??(safetyKick?Math.round(45+l.r()*18):Math.round(57+l.r()*16));
+ const landing=puntResult?.landing??origin+distance;
+ const touchback=puntResult?.touchback??(landing>=100);
+ const returnYards=puntResult?.returnYards??(touchback?0:Math.round(5+l.r()*25));
+ const receiveSpot=puntResult?.receiveSpot??(touchback?(safetyKick?30:35):Math.max(1,Math.min(99,100-landing+returnYards)));
  const kicking=kickingSide===0?l.us:l.opp,receiving=receivingSide===0?l.us:l.opp;
- l.specialTeams={type,phase:"flight",kickingSide,receivingSide,origin,landing:Math.min(110,landing),distance,returnYards,receiveSpot,touchback};
+ l.specialTeams={type,phase:"flight",kickingSide,receivingSide,origin,landing:Math.min(110,landing),distance,returnYards,receiveSpot,touchback,fairCatch:!!puntResult?.fairCatch};
  wffLiveEvent(kicking.city+(punt?" punts":safetyKick?" free-kicks after the safety":" kicks off")+" — ball traveling "+distance+" yards.",true);
  l.clock.running=false;
 }
@@ -99,10 +100,10 @@ function wffSpecialTeamsAdvance(l){
  l.fieldHighlight=null;
  if(k.phase==="flight"){
   k.phase=k.touchback?"touchback":"return";
-  wffLiveEvent(k.touchback?"Ball reaches the end zone — touchback.":(k.receivingSide===0?l.us.city:l.opp.city)+" fields the "+(k.type==="punt"?"punt":"kickoff")+" and starts the return.",true);
+  wffLiveEvent(k.touchback?"Ball reaches the end zone — touchback.":k.fairCatch?"Punt is fair-caught.":(k.receivingSide===0?l.us.city:l.opp.city)+" fields the "+(k.type==="punt"?"punt":"kickoff")+" and starts the return.",true);
  }else{
   l.possession=k.receivingSide;l.field=k.receiveSpot;l.down=1;l.toGo=Math.min(10,100-l.field);
-  wffLiveEvent((k.receivingSide===0?l.us.city:l.opp.city)+" takes over at its own "+l.field+" after "+(k.touchback?"a touchback":k.returnYards+"-yard return")+".",true);
+  wffLiveEvent((k.receivingSide===0?l.us.city:l.opp.city)+" takes over at its own "+l.field+" after "+(k.touchback?"a touchback":(k.fairCatch?"a fair catch":k.returnYards+"-yard return"))+".",true);
   l.specialTeams=null;l.playVisual=null;l.calledPlay=null;l.formation=null;l.broadcastBefore=null;
  }
  wffLiveRender();wffLiveSchedule();return true;
