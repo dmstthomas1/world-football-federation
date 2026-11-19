@@ -40,7 +40,7 @@ function wffSkillProfile(state,teamId){
 function wffOpponentPlan(state,oppId){
  const own=wffTeamScheme(state,oppId),user=wffTeamScheme(state,state.teamId);
  const ownSkills=wffSkillProfile(state,oppId),userSkills=wffSkillProfile(state,state.teamId);
- const r=wffRandom(oppId,"gameplan|"+wffPlanKey(state)+"|"+state.teamId);
+ const r=rng((oppId+1)*104729+(state.teamId+1)*8191+(Number(state.finance?.year)||2026)*127+(Number(state.week)||1)*3571);
  const offenseWeights={balanced:2,ground:1,quick:1,deep:1,protect:1,tempo:1,playaction:1};
  if(ownSkills.run>ownSkills.pass+4){offenseWeights.ground+=3;offenseWeights.playaction+=2}
  if(ownSkills.pass>ownSkills.run+4){offenseWeights.quick+=2;offenseWeights.deep+=2}
