@@ -76,6 +76,10 @@ function wffCoachFourthCall(input){
  }
  // Inside one's own territory, punts are strongly preferred except urgent comebacks.
  if(yard<40&&!desperate&&toGo>=2)return {call:"punt",probability:0,reason:"Protect field position",kick};
+ // Routine NFL field-goal territory: do not punt a viable 40-54 yard try.
+ // On 4th-and-short, the existing conversion model can still choose to go.
+ if(canKick&&kickDistance<=54&&toGo>=3&&!desperate)
+  return {call:"field_goal",probability:0,reason:"Routine NFL field-goal attempt ("+kickDistance+" yards)",kick};
  const base=wffFourthDecision({...input,kicker:input.kicker||75});
  if(base.call==="field_goal")return {call:canKick?"field_goal":"punt",probability:base.probability,reason:canKick?"Kicker in viable range":"Field goal beyond kicker range",kick};
  if(base.call==="punt"&&canKick)return {...base,call:"field_goal",reason:"Scoring opportunity in kicker range",kick};
