@@ -125,13 +125,14 @@ function wffLiveEndPeriod(){
  const l=wffLive,c=l.clock;if(c.remaining>0||l.specialTeams?.phase==="conversion")return false;
  if(c.quarter===4){wffLiveFinish();return true}
  if(c.quarter===2){
-  wffLiveEvent("Halftime. Coaches review the first half and make adjustments.",true);
+  l.breakType="halftime";l.paused=true;
+  wffLiveEvent("Halftime. Review first-half player statistics before continuing.",true);
   wffBroadcast.call("halftime",l);wffAudio.event("halftime",0,l);
  }else{
   wffLiveEvent("End of quarter "+c.quarter+".",true);
   wffBroadcast.call("quarter",l);wffAudio.event("quarter",0,l);
  }
- wffLiveContinue();
+ if(c.quarter!==2)wffLiveContinue();
  return true;
 }
 function wffLiveContinue(){
@@ -337,12 +338,26 @@ function wffLiveFinish(){
  if(medical.injuries.length)wffLiveEvent("Medical report: "+medical.injuries.length+" injuries recorded.",true);
  wffLeagueCompleteWeek(state,{homeScore:l.matchup.home===state.teamId?homeScore:awayScore,awayScore:l.matchup.home===state.teamId?awayScore:homeScore});wffMedicalAdvance(state);l.finalGame=game;save();wffLiveEvent("Final score. Game saved to franchise history.",true);wffLiveRender();
 }
+function wffHalftimeView(l){
+ const panel=side=>{
+  const roster=wffTurnoverRoster(l,side);
+  const qb=roster.find(p=>p.position==="QB"),hb=roster.find(p=>p.position==="HB"),wr=roster.find(p=>p.position==="WR");
+  const team=l.stats[side],plays=team.plays||0;
+  const entries=[
+   {p:qb,stat:(team.pass||0)+" team pass plays • "+(team.yards||0)+" team total yards"},
+   {p:hb,stat:(team.rush||0)+" team rushing plays"},
+   {p:wr,stat:(team.firstDowns||0)+" team first downs"}
+  ];
+  return '<div class="wff-half-team"><h3>'+esc(teamLabel(side===0?l.us:l.opp))+'</h3>'+entries.filter(x=>x.p).map(x=>'<div class="wff-half-player"><strong>'+esc(x.p.name)+' ('+esc(x.p.position)+')</strong><span>'+esc(x.stat)+'</span></div>').join("")+'</div>';
+ };
+ return '<div class="wff-halftime-graphic"><h2>HALFTIME</h2><p>'+esc(l.us.city)+' '+l.score[0]+' — '+l.score[1]+' '+esc(l.opp.city)+'</p><div class="wff-half-grid">'+panel(0)+panel(1)+'</div><small>Team first-half totals shown alongside featured players; individual player statistics are not yet tracked.</small></div>';
+}
 function wffLiveRender(){
  const l=wffLive;if(!l)return;const c=l.clock,display=l.speed==="slow"?18:l.speed==="medium"?10:5;
  const stats=l.stats.map((x,i)=>'<div class="stat"><strong>'+esc(i===0?l.us.city:l.opp.city)+'</strong><p>'+x.plays+' plays • '+x.yards+' yards</p><small>'+x.pass+' passes • '+x.rush+' rushes • '+x.firstDowns+' first downs</small></div>').join("");
  const ticker=l.league.slice(0,8).map(x=>'<div class="line"><span>'+esc(x.away)+' '+x.awayScore+'</span><span>'+esc(x.home)+' '+x.homeScore+'</span></div>').join("");
  const planSummary='<p class="muted">Game plans • '+esc(l.us.city)+': '+esc(WFF_OFF_FOCUS[l.plans[0].offense].name)+' / '+esc(WFF_DEF_FOCUS[l.plans[0].defense].name)+' • '+esc(l.opp.city)+': '+esc(WFF_OFF_FOCUS[l.plans[1].offense].name)+' / '+esc(WFF_DEF_FOCUS[l.plans[1].defense].name)+'</p>';
- const buttons=l.complete?'<button class="btn" id="live-box-score">View Box Score</button> <button class="btn secondary" id="live-return">Return to Game Day</button>':'<button class="btn secondary" id="live-pause">'+(l.paused?"Resume":"Pause")+'</button>';
+ const buttons=l.breakType==="halftime"?'<button class="btn" id="live-continue">Start Third Quarter</button>':l.complete?'<button class="btn" id="live-box-score">View Box Score</button> <button class="btn secondary" id="live-return">Return to Game Day</button>':'<button class="btn secondary" id="live-pause">'+(l.paused?"Resume":"Pause")+'</button>';
  const pending=!!(l.broadcastBefore&&!l.complete&&!l.paused);
  const before=pending?{...l,...l.broadcastBefore,playVisual:l.specialTeams?null:l.playVisual,calledPlay:l.calledPlay,formation:l.formation,fieldHighlight:null,suppressResults:true}:null;
  const broadcastDown=before?wffFieldDown(before):wffFieldDown(l);
@@ -365,7 +380,8 @@ function wffLiveRender(){
    if(result&&wrap){result.classList.remove("wff-play-result-delayed");result.style.opacity="1";wrap.appendChild(result)}
   },duration+320);
  }
- const html='<section class="panel wff-live-controls"><h2>WFF Live Game • CPU vs CPU</h2><p class="muted">'+esc(broadcastDown)+' • Play clock '+c.playClock+'s • Timeouts '+c.timeouts.join(' / ')+'</p>'+planSummary+'<div class="toolbar"><label>Viewing speed <select id="live-speed">'+[["slow","Slow • 6–9 sec"],["medium","Medium • 3–5 sec"],["fast","Fast • 2 sec"]].map(([key,label])=>'<option value="'+key+'" '+(l.speed===key?"selected":"")+'>'+label+'</option>').join("")+'</select></label>'+buttons+'</div><p class="muted">Timing and scores are simulated. Viewing speed never changes the game model.</p></section>'+broadcastField+wffAudio.controls()+'<section class="panel"><h2>Game Statistics</h2><div class="grid">'+stats+'</div></section>'+wffPenaltySummary(l)+wffTurnoverView(l)+'<section class="panel"><h2>Scores Around the League</h2><p class="muted">Simulated scheduled league results for Week '+l.state.week+'; other games are generated deterministically and recorded after your game finishes.</p>'+ticker+'</section>';
+ const halftime=l.breakType==="halftime"?wffHalftimeView(l):"";
+ const html='<section class="panel wff-live-controls"><h2>WFF Live Game • CPU vs CPU</h2><p class="muted">'+esc(broadcastDown)+' • Play clock '+c.playClock+'s • Timeouts '+c.timeouts.join(' / ')+'</p>'+planSummary+'<div class="toolbar"><label>Viewing speed <select id="live-speed">'+[["slow","Slow • 6–9 sec"],["medium","Medium • 3–5 sec"],["fast","Fast • 2 sec"]].map(([key,label])=>'<option value="'+key+'" '+(l.speed===key?"selected":"")+'>'+label+'</option>').join("")+'</select></label>'+buttons+'</div><p class="muted">Timing and scores are simulated. Viewing speed never changes the game model.</p></section>'+broadcastField+halftime+wffAudio.controls()+'<section class="panel"><h2>Game Statistics</h2><div class="grid">'+stats+'</div></section>'+wffPenaltySummary(l)+wffTurnoverView(l)+'<section class="panel"><h2>Scores Around the League</h2><p class="muted">Simulated scheduled league results for Week '+l.state.week+'; other games are generated deterministically and recorded after your game finishes.</p>'+ticker+'</section>';
  const v=document.getElementById("view");if(!v)return;v.innerHTML=html;wffAudio.bind();
  document.getElementById("live-speed").onchange=e=>{l.speed=e.target.value;wffLiveRender();wffLiveSchedule()};
  const pause=document.getElementById("live-pause");if(pause)pause.onclick=()=>{l.paused=!l.paused;if(l.paused)wffBroadcast.stop();wffLiveRender();wffLiveSchedule()};
