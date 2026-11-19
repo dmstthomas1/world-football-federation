@@ -368,7 +368,7 @@ function wffHalftimeView(l){
   ];
   return '<div class="wff-half-team"><h3>'+esc(teamLabel(side===0?l.us:l.opp))+'</h3>'+entries.filter(x=>x.p).map(x=>'<div class="wff-half-player"><strong>'+esc(x.p.name)+' ('+esc(x.p.position)+')</strong><span>'+esc(x.stat)+'</span></div>').join("")+'</div>';
  };
- return '<div class="wff-halftime-graphic"><h2>HALFTIME</h2><p>'+esc(l.us.city)+' '+l.score[0]+' — '+l.score[1]+' '+esc(l.opp.city)+'</p><div class="wff-half-grid">'+panel(0)+panel(1)+'</div><small>Team first-half totals shown alongside featured players; individual player statistics are not yet tracked.</small></div>';
+ return '<div class="wff-halftime-graphic"><h2>HALFTIME</h2><div class="wff-half-scoreboard">'+[0,1].map(side=>{const team=side===0?l.us:l.opp;return '<div class="wff-half-score-team"><div class="wff-half-score-logo">'+wffLogo(team,128)+'</div><strong class="wff-half-score-name">'+esc(teamLabel(team))+'</strong><span class="wff-half-score-number">'+l.score[side]+'</span></div>'}).join('<span class="wff-half-score-divider">—</span>')+'</div><div class="wff-half-grid">'+panel(0)+panel(1)+'</div><small>Team first-half totals shown alongside featured players; individual player statistics are not yet tracked.</small></div>';
 }
 function wffScoringScreen(l){
  const k=l.specialTeams,side=k.kickingSide,team=side===0?l.us:l.opp;
