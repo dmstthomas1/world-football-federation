@@ -13,7 +13,7 @@ const WFF_DEF_FOCUS={
  balanced:{name:"Balanced Defense",desc:"No special emphasis; adjust by down, distance and personnel."},
  run:{name:"Stop the Run",desc:"More run fits and heavier fronts. Helps against rushing but can expose play-action and passes."},
  blitz:{name:"Pressure & Blitz",desc:"Send extra rushers for pressure and sacks; greater exposure to quick throws and big plays."},
- coverage:{name:"Protect the Pass",desc:"Favor deeper zone and coverage shells; concede some underneath runs and short throws."},
+ coverage:{name:"Pass Coverage Defense",desc:"Favor deeper zone and coverage shells; concede some underneath runs and short throws."},
  man:{name:"Press Man Coverage",desc:"Contest timing routes aggressively; risk explosive plays if coverage loses."},
  contain:{name:"Contain & Spy",desc:"Keep edges disciplined against mobile quarterbacks and option plays; less interior pressure."},
  disguise:{name:"Disguise Coverages",desc:"Mix pre-snap looks to challenge reads; communication errors can create openings."}
