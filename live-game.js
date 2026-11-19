@@ -104,6 +104,8 @@ function wffSpecialTeamsAdvance(l){
  wffLiveRender();wffLiveSchedule();return true;
 }
 function wffLiveSchedule(){
+ // Halftime owns a separate 15-second countdown; do not cancel it when scheduling stops.
+ if(wffLive?.breakType==="halftime")return;
  wffLiveStop();if(!wffLive||wffLive.paused||wffLive.breakType||wffLive.complete)return;
  const l=wffLive,delay=l.specialTeams?.phase==="conversion"?(l.speed==="slow"?5200:l.speed==="medium"?3200:1800):l.specialTeams?.phase==="scoreHold"?(l.speed==="slow"?6500:l.speed==="medium"?4200:2200):WFF_LIVE_SPEED[l.speed];
  wffLiveTimer=setTimeout(()=>{wffLiveTimer=null;if(wffLive.specialTeams)wffSpecialTeamsAdvance(wffLive);else wffLiveStep()},delay);
