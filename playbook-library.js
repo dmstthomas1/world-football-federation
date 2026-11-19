@@ -74,7 +74,7 @@ function wffCallPlay(l,side){
  const scoreDiff=l.score[side]-l.score[1-side],seconds=l.clock.remaining;
  const goalToGo=l.field>=90&&distance>=100-l.field;
  const nearGoal=l.field>=94||goalToGo;
- const short=distance<=2,long=distance>=8,veryLong=distance>=14;
+ const short=distance<=2,longYardage=distance>=8,veryLong=distance>=14;
  const baseRun=({"Balanced Multiple":.44,"West Coast":.43,"Power Run":.56,"Vertical Passing":.37,"Spread":.40,"Wide Zone":.53,"Air Raid":.32,"Run and Shoot":.34,"Run and Gun":.38})[style]??.44;
  let runChance=baseRun+wffPlanRunBias(focus)*.55;
  if(down===1)runChance+=.07;
@@ -82,7 +82,7 @@ function wffCallPlay(l,side){
  if(down===3)runChance+=short?.10:distance<=5?-.12:-.34;
  if(down===4)runChance+=short?.16:distance<=5?-.10:-.39;
  if(veryLong)runChance-=down>=3?.22:.13;
- else if(long&&down>=2)runChance-=.08;
+ else if(longYardage&&down>=2)runChance-=.08;
  if(nearGoal)runChance+=short?.15:.04;
  if(l.field<=5)runChance+=.08;
  if(l.clock.quarter===4&&scoreDiff>=9)runChance+=.11;
