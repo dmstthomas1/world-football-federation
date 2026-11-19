@@ -57,10 +57,11 @@ function wffPuntEstimate(punter,origin,weather,r){
  const variation=(random()+random()+random()-1.5)*(7.5+(100-accuracy)*.065);
  const weatherLoss=/snow|heavy rain/i.test(condition)?2.5:0;
  const distance=Math.max(24,Math.min(70,Math.round(target+variation-weatherLoss)));
- const landing=origin+distance;
+ let landing=origin+distance;
  // Returnable punts average roughly ten yards per actual return, but many are
  // fair-caught or downed. Touchbacks are uncommon for normal midfield punts.
- const touchback=landing>=100&&(random()<(directional?Math.max(.12,Math.min(.55,.40-(accuracy-75)*.006)):.90));
+ const touchback=landing>=100&&(random()<(directional?Math.max(.30,Math.min(.75,.62-(accuracy-75)*.006)):.95));
+ if(landing>=100&&!touchback)landing=Math.max(81,99-Math.round(random()*11));
  const fairCatch=!touchback&&random()<(directional?.55:.31);
  const returnYards=touchback||fairCatch?0:Math.max(0,Math.round(5+random()*10+random()*5));
  const receiveSpot=touchback?20:Math.max(1,Math.min(99,100-landing+returnYards));
