@@ -4,13 +4,13 @@
 // Distinct rare fouls are represented in the catalog but not all NFL rulebook
 // exceptions (spot fouls, runoff, half-distance, offsetting) are modeled.
 const WFF_PENALTIES={
- falseStart:{name:"False start",yards:5,side:"offense",phase:"pre",positions:["OL","TE","WR","QB"],weight:23},
+ falseStart:{name:"False start",yards:5,side:"offense",phase:"pre",positions:["OL","TE","WR","QB"],weight:28},
  offside:{name:"Offside",yards:5,side:"defense",phase:"pre",positions:["EDGE","DT","LB"],weight:10},
  neutralZone:{name:"Neutral zone infraction",yards:5,side:"defense",phase:"pre",positions:["EDGE","DT"],weight:4},
  encroachment:{name:"Encroachment",yards:5,side:"defense",phase:"pre",positions:["EDGE","DT"],weight:2},
- holdingOff:{name:"Offensive holding",yards:10,side:"offense",phase:"live",positions:["OL","TE","WR"],weight:23},
+ holdingOff:{name:"Offensive holding",yards:10,side:"offense",phase:"live",positions:["OL","TE","WR"],weight:29},
  holdingDef:{name:"Defensive holding",yards:5,side:"defense",phase:"live",autoFirst:true,positions:["CB","S","LB"],weight:7},
- dpi:{name:"Defensive pass interference",yards:15,side:"defense",phase:"pass",spot:true,autoFirst:true,positions:["CB","S","LB"],weight:9},
+ dpi:{name:"Defensive pass interference",yards:15,side:"defense",phase:"pass",spot:true,autoFirst:true,positions:["CB","S","LB"],weight:13},
  opi:{name:"Offensive pass interference",yards:10,side:"offense",phase:"pass",positions:["WR","TE"],weight:3},
  illegalContact:{name:"Illegal contact",yards:5,side:"defense",phase:"pass",autoFirst:true,positions:["CB","S","LB"],weight:3},
  roughingPasser:{name:"Roughing the passer",yards:15,side:"defense",phase:"pass",autoFirst:true,positions:["EDGE","DT","LB"],weight:2},
@@ -51,9 +51,9 @@ function wffPenaltyPlayer(l,side,rule){
  return eligible.at(-1);
 }
 function wffPenaltyRoll(l,offenseSide,pass,phase){
- // ~5-7 assessed fouls per club per game at 65-75 snaps, modulated
+ // Target roughly 12-13 accepted penalties per game across both clubs, modulated
  // by discipline. Pre-snap checks are exclusive with live-ball checks.
- const base=phase==="pre"?.014:phase==="kick"?.012:.038;
+ const base=phase==="pre"?.013:phase==="kick"?.012:.034;
  const potential=[offenseSide,1-offenseSide].map(side=>{
   const discipline=wffTeamDiscipline(l,side);
   const multiplier=Math.max(.65,Math.min(1.55,1+(72-discipline)*.022));
