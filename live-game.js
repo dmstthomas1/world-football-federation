@@ -3,7 +3,7 @@
 // not results from a persistent 32-team season schedule.
 let wffLive=null,wffLiveTimer=null;
 const WFF_LIVE_SPEED={slow:7500,medium:4000,fast:2000};
-function wffLiveStop(){if(wffLiveTimer!==null){clearTimeout(wffLiveTimer);wffLiveTimer=null}if(wffLive?.broadcastRevealTimer){clearTimeout(wffLive.broadcastRevealTimer);wffLive.broadcastRevealTimer=null}}
+function wffLiveStop(){if(wffLive?.halftimeTimer){clearInterval(wffLive.halftimeTimer);wffLive.halftimeTimer=null}if(wffLiveTimer!==null){clearTimeout(wffLiveTimer);wffLiveTimer=null}if(wffLive?.broadcastRevealTimer){clearTimeout(wffLive.broadcastRevealTimer);wffLive.broadcastRevealTimer=null}}
 function wffLiveScores(state,opponent){
  const r=wffRandom(state.teamId,"weekly-scores-"+state.week),pool=teams.filter(t=>t.id!==state.teamId&&t.id!==opponent.id);
  const games=[];for(let i=0;i+1<pool.length;i+=2){games.push({home:teamLabel(pool[i]),away:teamLabel(pool[i+1]),homeScore:Math.floor(r()*5)*3+Math.floor(r()*3)*7,awayScore:Math.floor(r()*4)*3+Math.floor(r()*4)*7})}return games;
@@ -125,9 +125,10 @@ function wffLiveEndPeriod(){
  const l=wffLive,c=l.clock;if(c.remaining>0||l.specialTeams?.phase==="conversion")return false;
  if(c.quarter===4){wffLiveFinish();return true}
  if(c.quarter===2){
-  l.breakType="halftime";l.paused=true;
+  l.breakType="halftime";l.paused=true;l.halftimeRemaining=15;
   wffLiveEvent("Halftime. Review first-half player statistics before continuing.",true);
   wffBroadcast.call("halftime",l);wffAudio.event("halftime",0,l);
+  wffLiveStartHalftimeCountdown(l);
  }else{
   wffLiveEvent("End of quarter "+c.quarter+".",true);
   wffBroadcast.call("quarter",l);wffAudio.event("quarter",0,l);
@@ -135,9 +136,20 @@ function wffLiveEndPeriod(){
  if(c.quarter!==2)wffLiveContinue();
  return true;
 }
+function wffLiveStartHalftimeCountdown(l){
+ if(l.halftimeTimer)clearInterval(l.halftimeTimer);
+ l.halftimeTimer=setInterval(()=>{
+  if(wffLive!==l||l.complete||l.breakType!=="halftime"){clearInterval(l.halftimeTimer);l.halftimeTimer=null;return}
+  l.halftimeRemaining=Math.max(0,l.halftimeRemaining-1);
+  const counter=document.getElementById("wff-halftime-countdown");
+  if(counter)counter.textContent="3rd Quarter starts in "+l.halftimeRemaining+" seconds";
+  if(l.halftimeRemaining===0){clearInterval(l.halftimeTimer);l.halftimeTimer=null;wffLiveContinue()}
+ },1000);
+}
 function wffLiveContinue(){
  const l=wffLive;if(!l||l.complete)return;
  const halftime=l.clock.quarter===2;
+ if(l.halftimeTimer){clearInterval(l.halftimeTimer);l.halftimeTimer=null}
  l.clock.quarter++;l.clock.remaining=900;l.clock.playClock=40;l.clock.running=false;
  if(halftime){
   l.clock.timeouts=[3,3];wffSpecialTeamsKick(l,"kickoff",0,1);
@@ -357,7 +369,7 @@ function wffLiveRender(){
  const stats=l.stats.map((x,i)=>'<div class="stat"><strong>'+esc(i===0?l.us.city:l.opp.city)+'</strong><p>'+x.plays+' plays • '+x.yards+' yards</p><small>'+x.pass+' passes • '+x.rush+' rushes • '+x.firstDowns+' first downs</small></div>').join("");
  const ticker=l.league.slice(0,8).map(x=>'<div class="line"><span>'+esc(x.away)+' '+x.awayScore+'</span><span>'+esc(x.home)+' '+x.homeScore+'</span></div>').join("");
  const planSummary='<p class="muted">Game plans • '+esc(l.us.city)+': '+esc(WFF_OFF_FOCUS[l.plans[0].offense].name)+' / '+esc(WFF_DEF_FOCUS[l.plans[0].defense].name)+' • '+esc(l.opp.city)+': '+esc(WFF_OFF_FOCUS[l.plans[1].offense].name)+' / '+esc(WFF_DEF_FOCUS[l.plans[1].defense].name)+'</p>';
- const buttons=l.breakType==="halftime"?'<button class="btn" id="live-continue">Start Third Quarter</button>':l.complete?'<button class="btn" id="live-box-score">View Box Score</button> <button class="btn secondary" id="live-return">Return to Game Day</button>':'<button class="btn secondary" id="live-pause">'+(l.paused?"Resume":"Pause")+'</button>';
+ const buttons=l.breakType==="halftime"?'<span id="wff-halftime-countdown" role="timer">3rd Quarter starts in '+(l.halftimeRemaining??15)+' seconds</span>':false?'<button class="btn" id="live-continue">Start Third Quarter</button>':l.complete?'<button class="btn" id="live-box-score">View Box Score</button> <button class="btn secondary" id="live-return">Return to Game Day</button>':'<button class="btn secondary" id="live-pause">'+(l.paused?"Resume":"Pause")+'</button>';
  const pending=!!(l.broadcastBefore&&!l.complete&&!l.paused);
  const before=pending?{...l,...l.broadcastBefore,playVisual:l.specialTeams?null:l.playVisual,calledPlay:l.calledPlay,formation:l.formation,fieldHighlight:null,suppressResults:true}:null;
  const broadcastDown=before?wffFieldDown(before):wffFieldDown(l);
