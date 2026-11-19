@@ -46,6 +46,7 @@ function wffLiveSafety(l,offenseSide,reason){
  l.field=0;l.clock.running=false;
  l.fieldHighlight={kind:"safety",title:"SAFETY! +2",detail:(defenseSide===0?l.us.city:l.opp.city)+" scores two points"};
  wffLiveEvent("SAFETY! "+(defenseSide===0?l.us.city:l.opp.city)+" earns two points — "+reason+". The offense must free-kick from its own 20-yard line.",true);
+ if(l.overtime){l.overtime.completed[offenseSide]=true;if(wffOvertimeCheck(l))return}
  l.specialTeams={type:"safety",phase:"scoreHold",kickingSide:offenseSide,receivingSide:defenseSide};
 }
 function wffTryTwoAfterTouchdown(l,side){
