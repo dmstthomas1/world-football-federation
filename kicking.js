@@ -9,14 +9,22 @@ function wffKickerForTeam(state,teamId){
  const [archetype,power,accuracy]=profiles[type];return {name:"Team Kicker",archetype,power:Math.round(power+(r()-.5)*12),accuracy:Math.round(accuracy+(r()-.5)*12),composure:65+Math.floor(r()*30)};
 }
 function wffKickEstimate(k,fieldPosition,weather={}){
- const distance=117-fieldPosition,wind=Number(weather.wind)||0;
- const penalty=Math.max(0,wind-10)*.18+(/snow/i.test(weather.condition||"")?3:0)+(/heavy rain/i.test(weather.condition||"")?2:0);
- const maximum=Math.max(38,Math.min(65,Math.round(45+(k.power-65)*.40-penalty)));
+ const distance=117-fieldPosition;
+ const wind=Math.max(0,Number(weather.wind)||0);
+ const condition=String(weather.condition||"");
+ const severe=/snow|heavy rain/i.test(condition);
+ const windPenalty=Math.max(0,wind-12)*.12;
+ const power=Math.max(50,Math.min(99,Number(k.power)||78));
+ const accuracy=Math.max(50,Math.min(99,Number(k.accuracy)||78));
+ // NFL kickers routinely attempt kicks from 45-55 yards. Strength and
+ // adverse conditions modify the upper range, not routine 47-yard tries.
+ const maximum=Math.max(50,Math.min(67,Math.round(59+(power-80)*.25-windPenalty-(severe?2:0))));
  const reachable=distance<=maximum;
- const accuracyBase=.95-(100-k.accuracy)*.0032;
- const distanceLoss=Math.max(0,distance-30)*(.011+(100-k.accuracy)*.00008);
- const pressure=weather.pressure?Math.max(0,(80-k.composure)*.002):0;
- const probability=reachable?Math.max(.04,Math.min(.98,accuracyBase-distanceLoss-pressure-penalty*.007)):0;
+ const bands=[[0,.985],[30,.965],[40,.915],[45,.86],[50,.76],[55,.67],[60,.49],[65,.23],[70,.06]];
+ let base=bands[bands.length-1][1];
+ for(let i=1;i<bands.length;i++)if(distance<bands[i][0]){const [d0,p0]=bands[i-1],[d1,p1]=bands[i];base=p0+(p1-p0)*(distance-d0)/(d1-d0);break}
+ const weatherLoss=Math.max(0,wind-10)*.0025+(severe?.035:0);
+ const probability=reachable?Math.max(.02,Math.min(.995,base+(accuracy-80)*.0025+(power-80)*.0008-weatherLoss)):0;
  return {distance,maximum,reachable,probability};
 }
 function wffKickDecision(k,fieldPosition,weather={}){
@@ -24,8 +32,8 @@ function wffKickDecision(k,fieldPosition,weather={}){
  // Even exceptional long attempts require a compelling situation.
  // A 52-yard attempt from the opponent's 35 is a normal professional FG choice
  // if the kicker can reach it. Do not punt solely due to an arbitrary 38% cutoff.
- const ordinary=e.reachable&&e.distance<=55&&e.probability>=.18;
- const longRange=e.reachable&&e.distance<=58&&e.probability>=.28;
+ const ordinary=e.reachable&&e.distance<=55&&e.probability>=.35;
+ const longRange=e.reachable&&e.distance<=59&&e.probability>=.45;
  const exceptional=e.reachable&&e.distance<=62&&e.probability>=.20&&weather.endHalf===true;
  return {...e,advisable:ordinary||longRange||exceptional};
 }
