@@ -7,7 +7,10 @@ function wffClockSnap(c,kind,opts={}){
  const before=c.remaining;const duration=kind==="pass_complete"?Math.min(12,opts.duration||6):kind==="run"?Math.min(12,opts.duration||6):kind==="kneel"?1:kind==="spike"?1:kind==="pass_incomplete"?Math.min(8,opts.duration||5):Math.min(12,opts.duration||5);
  c.remaining=Math.max(0,c.remaining-duration);
  const stopped=["pass_incomplete","spike","timeout","score","turnover"].includes(kind)||opts.outOfBounds===true;
- c.running=!stopped;
+ const lateBoundary=(c.quarter===2&&c.remaining<=120)||(c.quarter===4&&c.remaining<=300);
+ // Outside the late-half boundary, an out-of-bounds play restarts on the ready signal.
+ c.running=!stopped||(opts.outOfBounds===true&&!lateBoundary);
+ if(opts.outOfBounds===true&&lateBoundary)c.running=false;
  c.playClock=kind==="timeout"?25:40;
  const event={quarter:c.quarter,before,after:c.remaining,kind,stopped,playClock:c.playClock};
  c.events.push(event);return event;
@@ -27,10 +30,33 @@ function wffClockCanKneel(c,lead,opponentTimeouts){
 }
 function wffClockChoose(c,lead,opponentTimeouts,fieldPosition){
  if(wffClockCanKneel(c,lead,opponentTimeouts))return "kneel";
- if(c.quarter===4&&lead<0&&c.remaining<120)return "hurry";
- if(c.quarter===4&&lead>0&&c.remaining<300)return "drain";
+ if((c.quarter===2&&c.remaining<150)||(c.quarter===4&&lead<=0&&c.remaining<360))return "hurry";
+ if(c.quarter===4&&lead>0&&c.remaining<480)return "drain";
  if((c.quarter===2||c.quarter===4)&&c.remaining<120)return "two-minute";
  return "normal";
+}
+function wffClockTimeoutDecision({quarter,seconds,lead,ownTimeouts,opponentHasBall,clockRunning,down=1,opponentTimeouts=0,field=50}){
+ if(!ownTimeouts||!clockRunning||![2,4].includes(quarter))return false;
+ if(quarter===2){
+  // Preserve a possession before halftime when the opponent can drain the half.
+  if(opponentHasBall)return seconds<=85&&seconds>=12&&(down>=3||seconds<=48);
+  return lead<=0&&seconds<=65&&seconds>=9;
+ }
+ if(lead>=0)return false;
+ // Save a full play clock when chasing a late comeback, earlier when multiple scores behind.
+ const urgent=lead<=-9?seconds<=420:seconds<=235;
+ if(!urgent)return false;
+ if(opponentHasBall)return seconds>=8&&(down>=2||seconds<=125||opponentTimeouts===0);
+ return seconds<=90&&seconds>=8;
+}
+function wffClockSnapWait({quarter,seconds,lead,tempo="normal",opponentTimeouts=0,field=50}){
+ if(quarter===4&&lead>0&&seconds<=480)return 38;
+ if(quarter===2&&lead>0&&seconds<=125)return 37;
+ if(quarter===2&&seconds<=150)return lead<=0?8:24;
+ if(quarter===4&&lead<=0&&seconds<=360)return lead<=-9?7:11;
+ if(tempo==="hurry")return 11;
+ if(tempo==="drain")return 38;
+ return 31;
 }
 function wffClockEndQuarter(c){if(c.remaining>0)return false;if(c.quarter>=4)return true;c.quarter++;c.remaining=900;c.playClock=40;c.running=false;if(c.quarter===3)c.timeouts=[3,3];return false}
 function wffClockView(c){return '<section class="panel"><h2>Automatic Clock Management — Prototype</h2><div class="grid"><div class="stat"><small>Quarter</small><b>Q'+c.quarter+'</b></div><div class="stat"><small>Game clock</small><b>'+wffClockTime(c.remaining)+'</b></div><div class="stat"><small>Play clock</small><b>'+c.playClock+'s</b></div><div class="stat"><small>Timeouts</small><b>'+c.timeouts[0]+' / '+c.timeouts[1]+'</b></div></div><p class="muted">CPU-only decisions. Incompletions stop the game clock; completed plays normally keep it running. The full drive engine and complete NFL timing exceptions are still being built.</p></section>'}
