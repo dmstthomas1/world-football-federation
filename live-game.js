@@ -26,7 +26,7 @@ function wffLiveStart(state,redraw){
 }
 function wffSpecialTeamsKick(l,type,kickingSide,receivingSide){
  // A new special-teams sequence owns the screen; retire the previous scoring graphic.
- l.fieldHighlight=null;l.playVisual=null;
+ l.fieldHighlight=null;l.playVisual=null;l.calledPlay=null;l.formation=null;l.broadcastBefore=null;
  const punt=type==="punt",safetyKick=type==="safety",origin=punt?l.field:safetyKick?20:35;
  const distance=punt?Math.round(38+l.r()*22):safetyKick?Math.round(45+l.r()*18):Math.round(57+l.r()*16);
  const landing=origin+distance;
@@ -99,7 +99,7 @@ function wffSpecialTeamsAdvance(l){
  }else{
   l.possession=k.receivingSide;l.field=k.receiveSpot;l.down=1;l.toGo=Math.min(10,100-l.field);
   wffLiveEvent((k.receivingSide===0?l.us.city:l.opp.city)+" takes over at its own "+l.field+" after "+(k.touchback?"a touchback":k.returnYards+"-yard return")+".",true);
-  l.specialTeams=null;
+  l.specialTeams=null;l.playVisual=null;l.calledPlay=null;l.formation=null;l.broadcastBefore=null;
  }
  wffLiveRender();wffLiveSchedule();return true;
 }
