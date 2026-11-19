@@ -199,20 +199,4 @@ function wffScheduleView(state){
  }else html+='<p class="muted">Playoff seeds will be determined after Week 18.</p>';
  return html+'</section>';
 }
-function wffScheduleBind(state,redraw){const play=document.getElementById("schedule-play-next");if(play)play.onclick=()=>{
-  if(!wffNextMatch(state))return;
-  play.disabled=true;play.textContent="Starting game…";
-  try{
-   tab="sim";
-   dashboard();
-   wffLiveStart(state,drawView);
-   if(!wffLive)throw Error("The game did not initialize");
-   save();
-  }catch(error){
-   console.error("WFF schedule game launch failed:",error);
-   tab="schedule";dashboard();
-   const panel=document.createElement("p");panel.className="notice";panel.setAttribute("role","alert");
-   panel.textContent="Unable to start game: "+(error?.message||String(error))+". Your franchise has not been advanced.";
-   document.getElementById("view")?.prepend(panel);
-  }
- };const b=document.getElementById("playoff-advance");if(b)b.onclick=()=>{if(wffPostseasonRound(state)){save();redraw()}}}
+function wffScheduleBind(state,redraw){const play=document.getElementById("schedule-play-next");if(play)play.onclick=()=>{if(!wffNextMatch(state))return;tab="sim";dashboard()};const b=document.getElementById("playoff-advance");if(b)b.onclick=()=>{if(wffPostseasonRound(state)){save();redraw()}}}
