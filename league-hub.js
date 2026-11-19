@@ -164,6 +164,10 @@ function wffPlayerPortrait(playerId,position,jerseyNumber){
  const skins=["#704a39","#a36e50","#c48d68","#dfb18d","#f0cba9"];
  const jerseys=["#176d85","#284f92","#7a3e88","#8b403c","#2b7460"];
  const skin=skins[seed%skins.length],jersey=jerseys[Math.floor(seed/13)%jerseys.length];
+ const ranges=typeof WFF_JERSEY_RANGES!=="undefined"?(WFF_JERSEY_RANGES[wffJerseyGroup(position)]||[[0,99]]):[[0,99]];
+ const eligible=ranges.flatMap(([low,high])=>Array.from({length:high-low+1},(_,i)=>low+i));
+ const supplied=jerseyNumber==null?null:Number(jerseyNumber);
+ const number=supplied!=null&&Number.isInteger(supplied)&&eligible.includes(supplied)?supplied:eligible[seed%eligible.length];
  const hair=["#241d1b","#4a3025","#181c27"][Math.floor(seed/7)%3];
  return '<svg class="wff-player-portrait" viewBox="0 0 200 240" role="img" aria-label="Fictional illustrated player portrait" xmlns="http://www.w3.org/2000/svg">'+
  '<rect width="200" height="240" rx="14" fill="#172d48"/><circle cx="100" cy="82" r="66" fill="#fff" opacity=".06"/>'+
@@ -174,7 +178,7 @@ function wffPlayerPortrait(playerId,position,jerseyNumber){
  '<path d="M79 98 H90 M110 98 H121" stroke="'+hair+'" stroke-width="3" stroke-linecap="round"/>'+
  '<path d="M90 121 Q100 126 110 121" fill="none" stroke="#6b4436" stroke-width="2"/>'+
  '<path d="M71 152 L100 182 L129 152" stroke="#f1f5fa" stroke-width="7" fill="none"/>'+
- '<text x="100" y="224" text-anchor="middle" font-size="30" font-weight="900" fill="white">'+esc(String(jerseyNumber??(10+seed%89)))+'</text></svg>';
+ '<text x="100" y="224" text-anchor="middle" font-size="30" font-weight="900" fill="white">'+esc(String(number))+'</text></svg>';
 }
 function wffPlayerProfileView(state,teamId,name,position){
  wffEnsurePlayerRegistry(state);
