@@ -189,7 +189,28 @@ function wffLiveContinue(){
 }
 
 // Live sacks are generated from actual offensive dropbacks, not postgame estimates.
-function wffPassRushOutcome(l,side){
+// NFL-style defensive pressure: league baseline ~26% of dropbacks.
+// Weekly blitz focus and a stable coordinator tendency adjust the baseline.
+function wffBlitzRate(l,defendingSide,pass){
+ const focus=l.plans?.[defendingSide]?.defense||"balanced";
+ const id=defendingSide===0?l.us.id:l.opp.id;
+ const identity=((Number(id)*37+17)%17-8)*.0075;
+ const plan=focus==="blitz"?.105:focus==="coverage"?-.065:focus==="contain"?-.055:focus==="disguise"?.025:focus==="man"?.015:focus==="run"?.005:0;
+ const down=l.down>=3?.035:l.down===2?.01:0;
+ const long=l.toGo>=8?.01:0;
+ const runAdjustment=pass?0:-.045;
+ return Math.max(.12,Math.min(.44,.26+identity+plan+down+long+runAdjustment));
+}
+function wffBlitzCall(l,offenseSide,pass){
+ const defense=1-offenseSide;
+ const called=l.r()<wffBlitzRate(l,defense,pass);
+ if(called){
+  l.stats[defense].blitzCalls=(l.stats[defense].blitzCalls||0)+1;
+  l.stats[offenseSide].blitzFaced=(l.stats[offenseSide].blitzFaced||0)+1;
+ }
+ return called;
+}
+function wffPassRushOutcome(l,side,calledBlitz){
  const offense=wffTurnoverRoster(l,side),defense=wffTurnoverRoster(l,1-side);
  const group=(p,g)=>dnaGroup(p.position)===g;
  const score=(p,keys)=>keys.reduce((n,k)=>n+Number(p.ratings?.[k]??p.overall??72),0)/keys.length;
@@ -204,7 +225,7 @@ function wffPassRushOutcome(l,side){
  const edge=rushers.find(p=>group(p.player,"EDGE"));
  const focus=l.plans?.[1-side]?.defense;
  const concept=l.calledPlay?.defense?.concept||"";
- const blitz=/Blitz|Pressure/i.test(concept);
+ const blitz=!!calledBlitz;
  const longDown=l.toGo>=8&&l.down>=3;
  // Recognition and protection are independent of pass rush talent.
  const recognition=Math.max(.08,Math.min(.88,.43+(pocket-75)*.011+(protection-75)*.007+(blockers.length-5)*.018));
@@ -300,7 +321,8 @@ function wffLiveStep(){
  const talent=side===0?l.state.roster.reduce((n,p)=>n+p.overall,0)/Math.max(1,l.state.roster.length):rating(l.opp.id,12);
  const opposingTalent=side===0?rating(l.opp.id,12):l.state.roster.reduce((n,p)=>n+p.overall,0)/Math.max(1,l.state.roster.length);
  const talentDelta=Math.max(-.06,Math.min(.06,(talent-opposingTalent)*.004));
- const rushOutcome=pass?wffPassRushOutcome(l,side):null;
+ const blitzCalled=wffBlitzCall(l,side,pass);
+ const rushOutcome=pass?wffPassRushOutcome(l,side,blitzCalled):null;
  const completionChance=Math.max(.28,Math.min(.84,.64+mods.completion+talentDelta+(rushOutcome?.pickup ? .035 : 0)+(rushOutcome?.quickThrow ? .025 : 0)-(rushOutcome?.blitz&&!rushOutcome.pickup&&!rushOutcome.quickThrow ? .045 : 0)));
  // A rare, pressure-driven throwaway: never count as a completion or interception.
  const throwAway=pass&&!rushOutcome?.sack&&!!rushOutcome?.blitz&&!rushOutcome?.pickup&&!rushOutcome?.quickThrow&&l.r()<.075;
@@ -312,7 +334,6 @@ function wffLiveStep(){
  const sack=rushOutcome?.sack?rushOutcome:null;
  if(sack){
   l.playVisual={kind:"sack",gain:-sack.yards,side,concept:selected?.concept||""};
-  if(rushOutcome.blitz){l.stats[1-side].blitzCalls=(l.stats[1-side].blitzCalls||0)+1;l.stats[side].blitzFaced=(l.stats[side].blitzFaced||0)+1}
   const st=l.stats[side],dst=l.stats[1-side],loss=sack.yards;
   st.plays++;st.pass++;st.sacksAllowed=(st.sacksAllowed||0)+1;st.sackYardsLost=(st.sackYardsLost||0)+loss;st.yards-=loss;
   dst.sacks=(dst.sacks||0)+1;dst.sackYards=(dst.sackYards||0)+loss;
@@ -326,7 +347,7 @@ function wffLiveStep(){
   else if(l.down>4){st.turnovers++;wffLiveEvent("Turnover on downs after the sack.",true);wffLiveChangePossession(l.field)}
   wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return;
  }
- if(rushOutcome?.blitz){const st=l.stats[side],dst=l.stats[1-side];st.blitzFaced=(st.blitzFaced||0)+1;dst.blitzCalls=(dst.blitzCalls||0)+1;if(rushOutcome.pickup){st.blitzPickedUp=(st.blitzPickedUp||0)+1;wffLiveEvent("Blitz recognized and picked up — quarterback has time to throw.")}else if(rushOutcome.quickThrow){st.quickThrows=(st.quickThrows||0)+1;wffLiveEvent("Quarterback reads the blitz and releases a quick pass.")}}
+ if(rushOutcome?.blitz){const st=l.stats[side];if(rushOutcome.pickup){st.blitzPickedUp=(st.blitzPickedUp||0)+1;wffLiveEvent("Blitz recognized and picked up — quarterback has time to throw.")}else if(rushOutcome.quickThrow){st.quickThrows=(st.quickThrows||0)+1;wffLiveEvent("Quarterback reads the blitz and releases a quick pass.")}}
  const turnoverPass=pass&&!throwAway?wffTurnoverPass(l,side,{pressure:defenseFocus==="blitz",desperate:urgent}):null;
  if(turnoverPass?.type==="interception"){
   l.playVisual={kind:"interception",gain:0,side,concept:selected?.concept||""};
