@@ -180,7 +180,7 @@ function wffLiveContinue(){
  const l=wffLive;if(!l||l.complete)return;
  const halftime=l.clock.quarter===2;
  if(l.halftimeTimer){clearInterval(l.halftimeTimer);l.halftimeTimer=null}
- l.clock.quarter++;l.clock.remaining=900;l.clock.playClock=40;l.clock.running=false;
+ l.clock.quarter++;l.clock.remaining=900;l.clock.playClock=40;l.clock.running=false;l.clock.warningPending=false;
  if(halftime){
   l.clock.timeouts=[3,3];wffSpecialTeamsKick(l,"kickoff",0,1);
   wffLiveEvent("Second half kickoff. Coaches have applied halftime adjustments.",true);
@@ -257,6 +257,30 @@ function wffLiveStep(){
  l.calledPlay=wffCallPlay(l,l.possession);
  l.formation={formation:l.calledPlay.formation,personnel:l.calledPlay.personnel,defense:l.calledPlay.defenseFormation,playType:l.calledPlay.play?.kind==="pass"?"Pass":"Run"};
  const c=l.clock,side=l.possession,lead=l.score[side]-l.score[1-side];
+ if(c.warningPending){c.warningPending=false;c.twoMinuteWarning[c.quarter===2?0:1]=true;c.running=false;c.playClock=25;wffLiveEvent("Two-minute warning. Official timeout.",true);wffLiveRender();wffLiveSchedule();return;}
+ const profile=side===0?l.state.staff.hc.tendencies:wffCoachProfile(l.opp.id);
+ const opponentTimeouts=c.timeouts[1-side];
+ const policy=wffClockChoose({...c,down:l.down},lead,opponentTimeouts,l.field);
+ const urgent=(c.quarter===2||c.quarter===4)&&c.remaining<=120&&lead<=0;
+ // Defense may use a timeout before the offense burns the next play-clock interval.
+ const defenseSide=1-side,defenseLead=l.score[defenseSide]-l.score[side];
+ if(wffClockTimeoutDecision({quarter:c.quarter,seconds:c.remaining,lead:defenseLead,ownTimeouts:c.timeouts[defenseSide],opponentHasBall:true,clockRunning:c.running,down:l.down,opponentTimeouts:c.timeouts[side],field:l.field})){
+  c.timeouts[defenseSide]--;c.running=false;c.playClock=25;
+  wffLiveEvent((defenseSide===0?l.us.city:l.opp.city)+" calls timeout to preserve the clock. "+c.timeouts[defenseSide]+" remaining.",true);
+  wffLiveRender();wffLiveSchedule();return;
+ }
+ if(c.running){
+  const userTempo=side===0?l.adjustments.tempo:"normal";
+  const wait=wffClockSnapWait({quarter:c.quarter,seconds:c.remaining,lead,tempo:urgent?"hurry":userTempo,opponentTimeouts:c.timeouts[defenseSide],field:l.field,random:l.r});
+  // The two-minute warning is a mandatory stoppage, not a clock interval that can be skipped.
+  if((c.quarter===2||c.quarter===4)&&c.remaining>120&&c.remaining-wait<=120&&!c.twoMinuteWarning[(c.quarter===2?0:1)]){
+   wffClockRunoff(c,c.remaining-120);c.twoMinuteWarning[c.quarter===2?0:1]=true;c.running=false;c.playClock=25;
+   wffLiveEvent("Two-minute warning. Official timeout.",true);
+   wffLiveRender();wffLiveSchedule();return;
+  }
+  wffClockRunoff(c,Math.min(wait,c.playClock-1));c.playClock=Math.max(1,c.playClock-wait);
+  if(wffLiveEndPeriod()){wffLiveRender();return}
+ }
  // Endgame victory formation: evaluate BEFORE choosing an offensive play.
  // A kneel costs one second, then the offense can run 39 seconds off the clock.
  // Account for the trailing club's remaining timeouts conservatively.
@@ -276,29 +300,6 @@ function wffLiveStep(){
   // Preserve the kneel on screen before draining the rest of the game clock.
   if(c.timeouts[1-side]===0&&c.remaining<=39){l.endgameKneel=true}
   wffLiveRender();wffLiveSchedule();return;
- }
- const profile=side===0?l.state.staff.hc.tendencies:wffCoachProfile(l.opp.id);
- const opponentTimeouts=c.timeouts[1-side];
- const policy=wffClockChoose({...c,down:l.down},lead,opponentTimeouts,l.field);
- const urgent=(c.quarter===2||c.quarter===4)&&c.remaining<=120&&lead<=0;
- // Defense may use a timeout before the offense burns the next play-clock interval.
- const defenseSide=1-side,defenseLead=l.score[defenseSide]-l.score[side];
- if(wffClockTimeoutDecision({quarter:c.quarter,seconds:c.remaining,lead:defenseLead,ownTimeouts:c.timeouts[defenseSide],opponentHasBall:true,clockRunning:c.running,down:l.down,opponentTimeouts:c.timeouts[side],field:l.field})){
-  c.timeouts[defenseSide]--;c.running=false;c.playClock=25;
-  wffLiveEvent((defenseSide===0?l.us.city:l.opp.city)+" calls timeout to preserve the clock. "+c.timeouts[defenseSide]+" remaining.",true);
-  wffLiveRender();wffLiveSchedule();return;
- }
- if(c.running){
-  const userTempo=side===0?l.adjustments.tempo:"normal";
-  const wait=wffClockSnapWait({quarter:c.quarter,seconds:c.remaining,lead,tempo:urgent?"hurry":userTempo,opponentTimeouts:c.timeouts[defenseSide],field:l.field});
-  // The two-minute warning is a mandatory stoppage, not a clock interval that can be skipped.
-  if((c.quarter===2||c.quarter===4)&&c.remaining>120&&c.remaining-wait<=120&&!c.twoMinuteWarning[(c.quarter===2?0:1)]){
-   wffClockRunoff(c,c.remaining-120);c.twoMinuteWarning[c.quarter===2?0:1]=true;c.running=false;c.playClock=25;
-   wffLiveEvent("Two-minute warning. Official timeout.",true);
-   wffLiveRender();wffLiveSchedule();return;
-  }
-  wffClockRunoff(c,Math.min(wait,c.playClock-1));c.playClock=Math.max(1,c.playClock-wait);
-  if(wffLiveEndPeriod()){wffLiveRender();return}
  }
  const prePenalty=wffPenaltyRoll(l,side,false,"pre");if(prePenalty){wffLiveEvent(wffPenaltyApply(l,prePenalty),true);c.running=false;wffLiveRender();wffLiveSchedule();return}
  if(l.down===4){
@@ -330,7 +331,7 @@ function wffLiveStep(){
  const rawGain=kneel?-1:pass?(complete?Math.floor((rushOutcome?.quickThrow?2+l.r()*7:3+l.r()*18)+mods.passYards):0):Math.floor(-2+l.r()*12+mods.runYards+talentDelta*12);
  const gain=Math.max(-8,rawGain);
  const livePenalty=!kneel?wffPenaltyRoll(l,side,pass,"live"):null;
- if(livePenalty){wffClockSnap(c,pass?"pass_incomplete":"run",{duration:5});l.playCount++;wffLiveEvent(wffPenaltyApply(l,livePenalty),true);c.running=false;wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
+ if(livePenalty){wffClockSnap(c,pass?"pass_incomplete":"run",{duration:5});l.playCount++;wffLiveEvent(wffPenaltyApply(l,livePenalty),true);wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();return}
  const sack=rushOutcome?.sack?rushOutcome:null;
  if(sack){
   l.playVisual={kind:"sack",gain:-sack.yards,side,concept:selected?.concept||""};
@@ -375,12 +376,14 @@ function wffLiveStep(){
  if(selected)wffLiveEvent((side===0?l.us.city:l.opp.city)+" calls "+selected.formation+" "+selected.variant+" — "+selected.concept+" against "+l.calledPlay.defenseFormation+" "+l.calledPlay.defense.concept+".");
  const kind=kneel?"kneel":pass?(complete?"pass_complete":"pass_incomplete"):"run";
  l.playVisual={kind:throwAway?"throwaway":kneel?"kneel":pass?(complete?"complete":"incomplete"):"run",gain,concept:selected?.concept||"",side,formation:l.formation?.formation};
- wffClockSnap(c,kind,{duration:kind==="pass_incomplete"?5:6});
+ const outOfBounds=!kneel&&(!pass||complete)&&gain>0&&l.field+gain<100&&l.r()<(pass?.12:.07);
+ const duration=kneel?1:kind==="pass_incomplete"?3+Math.floor(l.r()*5):Math.min(12,4+Math.floor(Math.max(0,gain)/5)+Math.floor(l.r()*3));
+ wffClockSnap(c,kind,{duration,outOfBounds});
  const st=l.stats[side];st.plays++;l.playCount++;if(pass)st.pass++;else st.rush++;st.yards+=gain;
  const name=side===0?l.us.city:l.opp.city;
  const label=kneel?"Quarterback kneels to protect the lead.":pass?(throwAway?"Quarterback throws the ball away under pressure.":complete?"Pass complete for "+gain+" yards.":"Pass incomplete; game clock stops."):"Run gains "+gain+" yards.";
  const detailed=" "+name+" — "+label+" ("+wffFieldDown(l)+")";
- wffLiveEvent(detailed);
+ wffLiveEvent(detailed+(outOfBounds?" Ball carrier goes out of bounds.":""));
  if(throwAway)wffBroadcast.call("throwaway",l,side);
  else if(pass&&!complete)wffBroadcast.call("incomplete",l,side);
  else if(!pass&&!kneel&&gain<=0)wffBroadcast.call("runStop",l,1-side);
@@ -391,7 +394,6 @@ function wffLiveStep(){
  }
  else if(gain>=l.toGo){st.firstDowns++;if(l.speed==="slow"&&l.playCount%3===0)wffBroadcast.call("firstDown",l,side);l.down=1;l.toGo=Math.min(10,100-l.field)}
  else{l.down++;l.toGo=Math.max(1,l.toGo-gain);if(l.down>4){st.turnovers++;wffAudio.event("fourthFail",side,l);wffBroadcast.call("fourthFail",l,side);wffLiveEvent("Turnover on downs.",true);wffLiveChangePossession()}}
- if(l.playCount>=260){c.remaining=0;wffLiveEndPeriod();if(!l.complete)wffLiveFinish();return}
  wffLiveEndPeriod();wffLiveRender();wffLiveSchedule();
 }
 function wffLiveFinish(){
