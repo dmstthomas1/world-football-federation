@@ -11,6 +11,7 @@ function wffClockSnap(c,kind,opts={}){
  // Outside the late-half boundary, an out-of-bounds play restarts on the ready signal.
  c.running=!stopped||(opts.outOfBounds===true&&!lateBoundary);
  if(opts.outOfBounds===true&&lateBoundary)c.running=false;
+ if ([2,4].includes(c.quarter) && before>120 && c.remaining<=120 && !c.twoMinuteWarning[c.quarter===2?0:1]) { c.warningPending=true; c.running=false; }
  c.playClock=kind==="timeout"?25:40;
  const event={quarter:c.quarter,before,after:c.remaining,kind,stopped,playClock:c.playClock};
  c.events.push(event);return event;
@@ -49,14 +50,14 @@ function wffClockTimeoutDecision({quarter,seconds,lead,ownTimeouts,opponentHasBa
  if(opponentHasBall)return seconds>=8&&(down>=2||seconds<=125||opponentTimeouts===0);
  return seconds<=90&&seconds>=8;
 }
-function wffClockSnapWait({quarter,seconds,lead,tempo="normal",opponentTimeouts=0,field=50}){
+function wffClockSnapWait({quarter,seconds,lead,tempo="normal",opponentTimeouts=0,field=50,random=Math.random}){
  if(quarter===4&&lead>0&&seconds<=480)return 38;
  if(quarter===2&&lead>0&&seconds<=125)return 37;
  if(quarter===2&&seconds<=150)return lead<=0?8:24;
  if(quarter===4&&lead<=0&&seconds<=360)return lead<=-9?7:11;
- if(tempo==="hurry")return 11;
+ if(tempo==="hurry")return 12+Math.floor(random()*9);
  if(tempo==="drain")return 38;
- return 31;
+ return 30+Math.floor(random()*10);
 }
 function wffClockEndQuarter(c){if(c.remaining>0)return false;if(c.quarter>=4)return true;c.quarter++;c.remaining=900;c.playClock=40;c.running=false;if(c.quarter===3)c.timeouts=[3,3];return false}
 function wffClockView(c){return '<section class="panel"><h2>Automatic Clock Management — Prototype</h2><div class="grid"><div class="stat"><small>Quarter</small><b>Q'+c.quarter+'</b></div><div class="stat"><small>Game clock</small><b>'+wffClockTime(c.remaining)+'</b></div><div class="stat"><small>Play clock</small><b>'+c.playClock+'s</b></div><div class="stat"><small>Timeouts</small><b>'+c.timeouts[0]+' / '+c.timeouts[1]+'</b></div></div><p class="muted">CPU-only decisions. Incompletions stop the game clock; completed plays normally keep it running. The full drive engine and complete NFL timing exceptions are still being built.</p></section>'}
