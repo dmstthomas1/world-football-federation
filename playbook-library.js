@@ -85,7 +85,7 @@ function wffCallPlay(l,side){
  else if(longYardage&&down>=2)runChance-=.08;
  if(nearGoal)runChance+=short?.15:.04;
  if(l.field<=5)runChance+=.08;
- if(l.clock.quarter===4&&scoreDiff>=9)runChance+=.11;
+ if(l.clock.quarter===4&&scoreDiff>0&&seconds<=480)runChance+=down<=2?.18:short?.12:.04;
  if(l.clock.quarter===4&&scoreDiff<0&&seconds<300)runChance-=.23;
  if((l.clock.quarter===2||l.clock.quarter===4)&&seconds<90&&scoreDiff<=0)runChance-=.13;
  runChance=Math.max(down>=3&&veryLong?.025:.10,Math.min(.77,runChance));

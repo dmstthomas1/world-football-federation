@@ -12,5 +12,5 @@ function wffFieldDown(l){return l.down+" & "+(l.toGo>=100-l.field?"Goal":l.toGo)
 function wffFieldSwitch(l,spot){
  l.possession=1-l.possession;
  l.field=spot==null?25:Math.max(1,Math.min(99,100-spot));
- l.down=1;l.toGo=Math.min(10,100-l.field);l.clock.running=false;
+ l.down=1;l.toGo=Math.min(10,100-l.field);wffClockStop(l.clock);
 }

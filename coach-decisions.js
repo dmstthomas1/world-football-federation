@@ -58,6 +58,7 @@ function wffCoachFourthCall(input){
  const kickDistance=kick.distance??117-yard;
  const late=quarter===4,behind=lead<0,deficit=-lead;
  const lastChance=late&&behind&&seconds<=95;
+ if(late&&seconds<=60&&lead===0&&canKick)return {call:"field_goal",probability:0,reason:"Late go-ahead field goal",kick};
  const mustScoreTD=late&&behind&&deficit>=4&&seconds<=180;
  const urgentPossession=late&&behind&&seconds<=180&&((deficit>=9)||(deficit>=4&&!canKick));
  const desperate=lastChance||mustScoreTD||urgentPossession;
@@ -91,10 +92,4 @@ function wffCoachFourthCall(input){
 }
 function wffCoachConversionProbability(toGo,runStrength=75,defense=75,weatherFactor=1){
  return Math.max(.10,Math.min(.90,(toGo<=1?.71:toGo<=2?.61:toGo<=3?.51:toGo<=5?.39:.24)+(runStrength-defense)*.004))*weatherFactor;
-}
-function wffCoachTimeoutChoice({quarter,seconds,lead,ownTimeouts,opponentHasBall,opponentRunning,down}){
- if(!ownTimeouts)return false;
- if(quarter===4&&lead<0&&opponentHasBall&&opponentRunning&&seconds<=155)return true;
- if((quarter===2||quarter===4)&&lead<0&&!opponentHasBall&&seconds<=45&&down>=3)return true;
- return false;
 }

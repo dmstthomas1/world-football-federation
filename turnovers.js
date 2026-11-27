@@ -5,7 +5,12 @@ const WFF_TURNOVER_TARGETS={interceptionsPerAttempt:.024,fumblesPerScrimmagePlay
 function wffTurnoverClamp(v,min,max){return Math.max(min,Math.min(max,v))}
 function wffTurnoverRoster(l,side){return side===0?l.state.roster:(l.opponentPenaltyRoster||(l.opponentPenaltyRoster=makeRoster(l.opp.id).map((p,i)=>dnaBuild(p,l.opp.id,i,false))))}
 function wffTurnoverPick(l,side,positions){const pool=wffTurnoverRoster(l,side).filter(p=>positions.includes(dnaGroup(p.position)));return pool.length?pool[Math.floor(l.r()*pool.length)]:null}
-function wffTurnoverQB(l,side){return wffTurnoverRoster(l,side).find(p=>p.position==="QB")||null}
+function wffTurnoverQB(l,side){
+ const roster=wffTurnoverRoster(l,side);
+ const depth=side===0?l.state.depth?.QB||[]:[];
+ const available=p=>p?.position==="QB"&&p.health?.status!=="Out"&&!(p.health?.weeksOut>0);
+ return depth.map(i=>roster[i]).find(available)||roster.filter(available).sort((a,b)=>b.overall-a.overall)[0]||null;
+}
 function wffTurnoverDefender(l,side){return wffTurnoverPick(l,side,["CB","S","LB","EDGE"])||{name:"Defender",position:"DB",ratings:{}}}
 function wffTurnoverPass(l,side,context={}){
  const qb=wffTurnoverQB(l,side),a=qb?.ratings||{},def=wffTurnoverDefender(l,1-side),d=def.ratings||{};

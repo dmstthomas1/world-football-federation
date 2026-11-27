@@ -10,6 +10,18 @@ function wffFieldStatus(l){
  if(kick.phase==="scoreHold")return kick.type==="safety"?"Safety":"Scoring play";
  return kick.type==="punt"?"Punt":kick.type==="safety"?"Free kick":"Kickoff";
 }
+const WFF_MOMENT_TITLES={
+ touchdown:"Touchdown!", "field-goal":"Field goal good!", "missed-field-goal":"Field goal missed",
+ safety:"Safety!", sack:"Sack!", interception:"Interception!", fumble:"Fumble recovered!"
+};
+function wffMomentView(moments){
+ if(!moments?.length)return "";
+ const main=moments.at(-1),additional=moments.slice(0,-1);
+ return '<div class="wff-big-moment wff-big-moment-'+main.kind+'" role="status" aria-label="'+esc(WFF_MOMENT_TITLES[main.kind])+'">'+
+  '<span>'+esc(main.team)+'</span><strong>'+esc(WFF_MOMENT_TITLES[main.kind])+'</strong>'+
+  (main.detail?'<small>'+esc(main.detail)+'</small>':'')+
+  additional.map(moment=>'<small>'+esc(WFF_MOMENT_TITLES[moment.kind]+(moment.detail?" "+moment.detail:""))+'</small>').join("")+'</div>';
+}
 function wffFieldView(l){
  const snap=l.snapLineup;
  const side=snap?.possession??l.possession,off=side===0?l.us:l.opp,def=side===0?l.opp:l.us;
@@ -19,7 +31,9 @@ function wffFieldView(l){
  const leftTeam=quarterSwap?home:away,rightTeam=quarterSwap?away:home;
  const attackingRight=off.id===leftTeam.id;
  const leftColors=wffColors(leftTeam),rightColors=wffColors(rightTeam);
- const oc=wffColors(off),dc=wffColors(def),yard=Math.max(1,Math.min(99,snap?.field??l.field)),first=Math.min(100,yard+(snap?.toGo??l.toGo));
+ // Keep the same marker colors for each team when possession changes.
+ const markerColors=team=>team.id===home.id?["#111318","#ffffff","#ffffff"]:["#ffffff","#111318","#111318"];
+ const oc=markerColors(off),dc=markerColors(def),yard=Math.max(1,Math.min(99,snap?.field??l.field)),first=Math.min(100,yard+(snap?.toGo??l.toGo));
  const x=y=>138+y*7.04,ballX=x(yard),firstX=x(first);
  const packageInfo=snap?.formation||{formation:"Singleback",personnel:"11",defense:l.schemes[1-side].front};
  const homeScore=l.matchup.home===l.us.id?l.score[0]:l.score[1],awayScore=l.matchup.away===l.us.id?l.score[0]:l.score[1];
@@ -152,13 +166,13 @@ function wffFieldView(l){
   formations.forEach(p=>{p[0]=Math.max(minDepth,p[0])});
  }
  // Only the line of scrimmage changes between snaps. Each marker stays at its pre-snap spot.
- const dot=(px,py,color,outline,label)=>{
+ const dot=(px,py,[color,outline,textColor],label)=>{
   const cx=Math.max(62,Math.min(918,px)),cy=Math.max(43,Math.min(377,py));
   const readable=attackingRight?"":' transform="translate('+(2*cx)+' 0) scale(-1 1)"';
-  return '<g class="wff-player-marker"><circle cx="'+cx+'" cy="'+cy+'" r="7.2" fill="'+color+'" stroke="'+outline+'" stroke-width="1.6"/><text x="'+cx+'" y="'+(cy+2.6)+'"'+readable+' fill="#fff" text-anchor="middle" font-family="system-ui" font-size="6.3" font-weight="800">'+label+'</text></g>';
+  return '<g class="wff-player-marker"><circle cx="'+cx+'" cy="'+cy+'" r="7.2" fill="'+color+'" stroke="'+outline+'" stroke-width="1.6"/><text x="'+cx+'" y="'+(cy+2.6)+'"'+readable+' fill="'+textColor+'" text-anchor="middle" font-family="system-ui" font-size="6.3" font-weight="800">'+label+'</text></g>';
  };
- formations.forEach(([dx,dy],i)=>players.push(dot(ballX+dx,210+dy,oc[0],oc[1],offensiveLabels[i])));
- defenders.forEach(([dx,dy],i)=>players.push(dot(ballX+dx,210+dy,dc[0],dc[1],defensiveLabels[i])));
+ formations.forEach(([dx,dy],i)=>players.push(dot(ballX+dx,210+dy,oc,offensiveLabels[i])));
+ defenders.forEach(([dx,dy],i)=>players.push(dot(ballX+dx,210+dy,dc,defensiveLabels[i])));
  const ball='<ellipse cx="'+ballX+'" cy="210" rx="7" ry="4" fill="#7d4524" stroke="#fff" stroke-width="1.4"/>';
- return '<section class="panel wff-field-panel"><h2>Live Field • '+esc(teamLabel(off))+' on offense</h2><p>'+(snap?"At the snap · ":"")+'<strong>'+esc([formation,variant].filter(Boolean).join(' '))+' • '+esc(packageInfo.personnel)+' personnel</strong> vs <strong>'+esc(packageInfo.defense)+' defense</strong></p>'+scoreboard+'<div class="wff-field-wrap"><svg viewBox="0 0 980 420" role="img" aria-label="2D football field with player formations, ball at yard '+yard+' and first down at yard '+first+'" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="980" height="420" rx="14" fill="#102b21"/><rect x="50" y="30" width="880" height="360" fill="#246d43"/><rect x="50" y="30" width="88" height="360" fill="'+leftColors[1]+'" opacity=".7"/><rect x="842" y="30" width="88" height="360" fill="'+rightColors[1]+'" opacity=".7"/><g transform="'+(attackingRight?'':'translate(980 0) scale(-1 1)')+'">'+markers+'<line x1="50" y1="30" x2="930" y2="30" stroke="#fff" stroke-width="4"/><line x1="50" y1="390" x2="930" y2="390" stroke="#fff" stroke-width="4"/><line x1="'+ballX+'" y1="30" x2="'+ballX+'" y2="390" stroke="#53baff" stroke-width="3"/><line x1="'+firstX+'" y1="30" x2="'+firstX+'" y2="390" stroke="#ffd04d" stroke-width="4" stroke-dasharray="12 7"/>'+(l.specialTeams&&!snap?'':players.join("")+ball)+'</g>'+yardLabels+'<text x="94" y="210" transform="rotate(-90 94 210)" font-size="38" font-family="system-ui, sans-serif" letter-spacing="1" font-weight="950" text-anchor="middle" textLength="290" lengthAdjust="spacingAndGlyphs" fill="#fff">'+esc(leftTeam.city)+'</text><text x="886" y="210" transform="rotate(90 886 210)" font-size="38" font-family="system-ui, sans-serif" letter-spacing="1" font-weight="950" text-anchor="middle" textLength="290" lengthAdjust="spacingAndGlyphs" fill="#fff">'+esc(rightTeam.city)+'</text></svg></div>'+resultMarkup+'<div class="wff-field-key"><span><i style="background:'+oc[0]+'"></i> '+esc(off.city)+' offense</span><span><i style="background:'+dc[0]+'"></i> '+esc(def.city)+' defense</span><span>🔵 Line of scrimmage</span><span>🟡 First down</span></div><div class="wff-inline-play-feed" aria-live="polite"><h3>Live Play-by-Play</h3>'+l.events.slice(0,10).map((event,i)=>'<div class="wff-inline-play'+(i===0?' wff-inline-play-latest':'')+'"><span class="wff-inline-play-time">Q'+event.q+' '+event.time+'</span><span>'+esc(event.message)+'</span></div>').join('')+'</div></section>';
+ return '<section class="panel wff-field-panel"><h2>Live Field • '+esc(teamLabel(off))+' on offense</h2><p>'+(snap?"At the snap · ":"")+'<strong>'+esc([formation,variant].filter(Boolean).join(' '))+' • '+esc(packageInfo.personnel)+' personnel</strong> vs <strong>'+esc(packageInfo.defense)+' defense</strong>'+(snap?.quarterback?' · QB '+esc(snap.quarterback):'')+'</p>'+scoreboard+'<div class="wff-field-wrap"><svg viewBox="0 0 980 420" role="img" aria-label="2D football field with player formations, ball at yard '+yard+' and first down at yard '+first+'" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="980" height="420" rx="14" fill="#102b21"/><rect x="50" y="30" width="880" height="360" fill="#246d43"/><rect x="50" y="30" width="88" height="360" fill="'+leftColors[1]+'" opacity=".7"/><rect x="842" y="30" width="88" height="360" fill="'+rightColors[1]+'" opacity=".7"/><g transform="'+(attackingRight?'':'translate(980 0) scale(-1 1)')+'">'+markers+'<line x1="50" y1="30" x2="930" y2="30" stroke="#fff" stroke-width="4"/><line x1="50" y1="390" x2="930" y2="390" stroke="#fff" stroke-width="4"/><line x1="'+ballX+'" y1="30" x2="'+ballX+'" y2="390" stroke="#53baff" stroke-width="3"/><line x1="'+firstX+'" y1="30" x2="'+firstX+'" y2="390" stroke="#ffd04d" stroke-width="4" stroke-dasharray="12 7"/>'+(l.specialTeams&&!snap?'':players.join("")+ball)+'</g>'+yardLabels+'<text x="94" y="210" transform="rotate(-90 94 210)" font-size="38" font-family="system-ui, sans-serif" letter-spacing="1" font-weight="950" text-anchor="middle" textLength="290" lengthAdjust="spacingAndGlyphs" fill="#fff">'+esc(leftTeam.city)+'</text><text x="886" y="210" transform="rotate(90 886 210)" font-size="38" font-family="system-ui, sans-serif" letter-spacing="1" font-weight="950" text-anchor="middle" textLength="290" lengthAdjust="spacingAndGlyphs" fill="#fff">'+esc(rightTeam.city)+'</text></svg>'+wffMomentView(l.moments)+'</div>'+resultMarkup+'<div class="wff-field-key"><span><i style="background:'+oc[0]+'"></i> '+esc(off.city)+' offense</span><span><i style="background:'+dc[0]+'"></i> '+esc(def.city)+' defense</span><span>🔵 Line of scrimmage</span><span>🟡 First down</span></div></section>';
 }

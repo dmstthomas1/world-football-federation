@@ -21,7 +21,11 @@ Playwright starts a local static web server on port 8765. Tests use a fresh brow
 - No premature transition before 15 seconds
 - Exactly one automatic transition at 15 seconds
 - Halftime presentation shows two teams and at most three featured players each
+- Offensive and defensive timeouts, the two-minute warning, and victory-formation decisions
+- Stationary black and white markers and one result line per play
+- Sack attribution follows the active quarterback in the depth chart
+- Scoring and turnover cards render above the result line
 
 On failure, the workflow uploads Playwright traces, screenshots and an HTML report as a downloadable Actions artifact.
 
-**Limitations:** These tests do not yet simulate an entire game from kickoff through halftime, verify audio timing, or assess realistic football decisions. A passing test run should not be interpreted as proof that all WFF gameplay is correct.
+**Limitations:** These tests exercise specific situations. They do not measure the statistical realism of decisions over a season. A passing test run should not be interpreted as proof that all WFF gameplay is correct.

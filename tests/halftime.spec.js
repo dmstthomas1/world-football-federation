@@ -36,7 +36,7 @@ test('halftime graphic shows two teams and no more than three players each',asyn
   const teamsAvailable=typeof teams!=='undefined'&&teams.length>=2;
   if(!teamsAvailable)return null;
   // Avoid mutating a saved franchise: supply a minimal in-memory game fixture.
-  const l={us:teams[0],opp:teams[1],score:[10,7],stats:[{plays:22,pass:14,rush:8,yards:180,firstDowns:9},{plays:25,pass:15,rush:10,yards:165,firstDowns:8}],state:{teamId:teams[0].id}};
+  const l={us:teams[0],opp:teams[1],score:[10,7],stats:[{plays:22,pass:14,rush:8,yards:180,firstDowns:9},{plays:25,pass:15,rush:10,yards:165,firstDowns:8}],state:{teamId:teams[0].id,roster:makeRoster(teams[0].id)}};
   try{return wffHalftimeView(l)}catch(e){return 'ERROR: '+e.message}
  });
  expect(result).not.toBeNull();
