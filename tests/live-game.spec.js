@@ -83,7 +83,7 @@ test('stationary team markers, a single result line and the active QB on a sack'
   return [circle.getAttribute('cx'),circle.getAttribute('cy'),circle.getAttribute('fill'),getComputedStyle(el).animationName];
  }));
  const before=await positions();
- expect([...new Set(before.map(row=>row[2]))].sort()).toEqual(['#111318','#ffffff']);
+ expect([...new Set(before.map(row=>row[2]))].sort()).toEqual(['#c51f36','#ffffff']);
  expect(before.every(row=>row[3]==='none')).toBe(true);
  await page.clock.runFor(1100);
  expect(await positions()).toEqual(before);

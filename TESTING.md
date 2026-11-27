@@ -22,7 +22,7 @@ Playwright starts a local static web server on port 8765. Tests use a fresh brow
 - Exactly one automatic transition at 15 seconds
 - Halftime presentation shows two teams and at most three featured players each
 - Offensive and defensive timeouts, the two-minute warning, and victory-formation decisions
-- Stationary black and white markers and one result line per play
+- Stationary red and white markers and one result line per play
 - Sack attribution follows the active quarterback in the depth chart
 - Scoring and turnover cards render above the result line
 

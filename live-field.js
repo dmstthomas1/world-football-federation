@@ -32,7 +32,7 @@ function wffFieldView(l){
  const attackingRight=off.id===leftTeam.id;
  const leftColors=wffColors(leftTeam),rightColors=wffColors(rightTeam);
  // Keep the same marker colors for each team when possession changes.
- const markerColors=team=>team.id===home.id?["#111318","#ffffff","#ffffff"]:["#ffffff","#111318","#111318"];
+ const markerColors=team=>team.id===home.id?["#c51f36","#ffffff","#ffffff"]:["#ffffff","#111318","#111318"];
  const oc=markerColors(off),dc=markerColors(def),yard=Math.max(1,Math.min(99,snap?.field??l.field)),first=Math.min(100,yard+(snap?.toGo??l.toGo));
  const x=y=>138+y*7.04,ballX=x(yard),firstX=x(first);
  const packageInfo=snap?.formation||{formation:"Singleback",personnel:"11",defense:l.schemes[1-side].front};
