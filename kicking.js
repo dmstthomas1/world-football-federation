@@ -38,8 +38,7 @@ function wffKickDecision(k,fieldPosition,weather={}){
  return {...e,advisable:ordinary||longRange||exceptional};
 }
 
-/* NFL-calibrated punt model: ~47 gross / ~41 net in neutral conditions.
-   Strength affects carry modestly; directional placement trades yards for control. */
+// Directional placement trades distance for a chance to pin the receiving team.
 function wffPunterForTeam(state,teamId){
  const own=state&&state.teamId===teamId;
  const p=own&&state.roster?.find(p=>p.position==="P");
@@ -55,23 +54,43 @@ function wffPuntEstimate(punter,origin,weather,r){
  const wind=Math.max(0,Number(weather?.wind)||0);
  const condition=String(weather?.condition||"");
  const indoor=/indoor|dome|roof closed/i.test(condition);
- // Wind direction changes by quarter/end; not every kick gets a tailwind.
- const windDirection=indoor?0:(random()<.5?-1:1);
- const windImpact=indoor?0:Math.min(7,wind*.27)*windDirection;
+ const windImpact=indoor?0:Math.min(7,wind*.27)*(random()<.5?-1:1);
  const power=Math.max(50,Math.min(99,Number(punter.power)||78));
  const accuracy=Math.max(50,Math.min(99,Number(punter.accuracy)||78));
- const directional=origin>=55;
- const target=47.1+(power-80)*.16+windImpact-(directional?Math.min(15,(origin-55)*.36):0);
- const variation=(random()+random()+random()-1.5)*(7.5+(100-accuracy)*.065);
+ const toGoal=100-origin;
+ // nflverse 2022–25 regular-season punts from either 45 to midfield, excluding
+ // penalties and blocks: 40.7% at the 10 or deeper, 14.7% touchbacks, 4.5% deep OOB.
+ // Play-by-play records where a punt ended, so the sideline aim rate is a model input.
+ const placement=origin>=45;
+ const sideline=random()<(placement?.24:.20);
  const weatherLoss=/snow|heavy rain/i.test(condition)?2.5:0;
- const distance=Math.max(24,Math.min(70,Math.round(target+variation-weatherLoss)));
- let landing=origin+distance;
- // Returnable punts average roughly ten yards per actual return, but many are
- // fair-caught or downed. Touchbacks are uncommon for normal midfield punts.
- const touchback=landing>=100&&(random()<(directional?Math.max(.30,Math.min(.75,.62-(accuracy-75)*.006)):.95));
- if(landing>=100&&!touchback)landing=Math.max(81,99-Math.round(random()*11));
- const fairCatch=!touchback&&random()<(directional?.55:.31);
- const returnYards=touchback||fairCatch?0:Math.max(0,Math.round(5+random()*10+random()*5));
- const receiveSpot=touchback?20:Math.max(1,Math.min(99,100-landing+returnYards));
- return {distance,landing,touchback,fairCatch,returnYards,receiveSpot,windImpact,punterName:punter.name};
+ const fullKick=47.1+(power-80)*.16+Math.max(0,Math.min(1,(origin-28)/12))*3.6;
+ const aim=placement?Math.min(fullKick,toGoal-(sideline?11.6:9.0)+Math.max(0,origin-55)*.15):fullKick-(sideline?2:0);
+ const spread=(placement?(sideline?10.4:7.8):11)+(80-accuracy)*.14;
+ const variation=(random()+random()+random()-1.5)*spread;
+ const airDistance=Math.max(8,Math.min(70,Math.round(aim+windImpact+variation-weatherLoss)));
+ const landing=origin+airDistance;
+ const landingSpot=100-landing;
+ const settled=(outcome,kickSpot,returnYards=0,bounced=false)=>({
+  outcome,placement,sideline,bounced,distance:toGoal-kickSpot,airDistance,landing,
+  touchback:outcome==="touchback",fairCatch:outcome==="fair_catch",returnYards,
+  receiveSpot:outcome==="touchback"?20:Math.min(99,kickSpot+returnYards),
+  windImpact,punterName:punter.name
+ });
+ if(landingSpot<=0)return settled("touchback",0);
+ const control=Math.max(.20,Math.min(.72,.46+(accuracy-80)*.007-Math.abs(windImpact)*.015));
+ if(sideline&&random()<control)return settled("out_of_bounds",landingSpot);
+ // WFF returners stay away at their own five or deeper. From six through ten,
+ // the chance of letting the ball bounce falls quickly as fielding becomes safer.
+ const letBounce=landingSpot<=5||random()<(placement?Math.max(.12,.43-(landingSpot-5)*.052):.16);
+ if(letBounce){
+  const touchbackChance=landingSpot<=5?.84-(landingSpot-1)*.025:Math.max(0,.40-landingSpot*.035);
+  if(touchbackChance>0&&random()<touchbackChance)return settled("touchback",0,0,true);
+  const hop=Math.round(random()*7)-2;
+  const stop=Math.max(1,Math.min(99,landingSpot-hop));
+  return settled("downed",stop,0,true);
+ }
+ const fairChance=placement?(landingSpot<=12?.86:.75):.39;
+ if(random()<fairChance)return settled("fair_catch",landingSpot);
+ return settled("return",landingSpot,Math.round(2+random()*9+random()*7));
 }

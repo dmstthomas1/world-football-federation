@@ -235,3 +235,63 @@ test('the called defensive concept determines blitz attribution',async({page})=>
  });
  expect(result).toEqual([false,true,1,1]);
 });
+
+test('a punt landing at the four is left alone and can either roll in or be downed',async({page})=>{
+ await page.goto('/');
+ const result=await page.evaluate(()=>{
+  const punt=roll=>{
+   const sequence=[.8,.72,.72,.72,roll,.85];
+   return wffPuntEstimate({power:80,accuracy:80},50,{condition:'Dome'},()=>sequence.shift());
+  };
+  return [punt(.1),punt(.95)];
+ });
+ expect(result[0]).toMatchObject({landing:96,outcome:'touchback',bounced:true,receiveSpot:20,fairCatch:false});
+ expect(result[1]).toMatchObject({landing:96,outcome:'downed',bounced:true,receiveSpot:1,fairCatch:false});
+});
+
+test('midfield punt outcomes track observed proportions and placement accuracy matters',async({page})=>{
+ await page.goto('/');
+ const rates=await page.evaluate(()=>{
+  const sample=accuracy=>{
+   const r=wffRandom(23,'punt-outcomes'),n=6000;
+   let pin=0,deepOut=0,touchback=0,deepFair=0;
+   for(let i=0;i<n;i++){
+    const p=wffPuntEstimate({power:80,accuracy},45+i%11,{condition:'Dome'},r);
+    if(p.receiveSpot<=10){pin++;if(p.outcome==='out_of_bounds')deepOut++}
+    if(p.touchback)touchback++;
+    if(p.fairCatch&&p.receiveSpot<=5)deepFair++;
+   }
+   return {pin:pin/n,deepOut:deepOut/n,touchback:touchback/n,deepFair};
+  };
+  return {average:sample(80),low:sample(60),high:sample(95)};
+ });
+ expect(rates.average.pin).toBeGreaterThan(.37);
+ expect(rates.average.pin).toBeLessThan(.46);
+ expect(rates.average.deepOut).toBeGreaterThan(.035);
+ expect(rates.average.deepOut).toBeLessThan(.06);
+ expect(rates.average.touchback).toBeGreaterThan(.11);
+ expect(rates.average.touchback).toBeLessThan(.18);
+ expect(rates.average.deepFair).toBe(0);
+ expect(rates.high.deepOut).toBeGreaterThan(rates.low.deepOut);
+ expect(rates.high.pin).toBeGreaterThan(rates.low.pin);
+});
+
+test('a sideline punt shows the landing spot and sets the next first down there',async({page})=>{
+ await startGame(page);
+ const mood=await page.evaluate(()=>{
+  const l=wffLive;
+  wffLiveStop();
+  l.field=50;l.weather={condition:'Dome'};
+  wffPunterForTeam=()=>({name:'Test Punter',power:80,accuracy:80});
+  const sequence=[.1,.55,.55,.55,.1];
+  l.r=()=>sequence.shift();
+  wffSpecialTeamsKick(l,'punt',0,1);
+  wffSpecialTeamsAdvance(l);
+  const call=l.events[0].message;
+  wffSpecialTeamsAdvance(l);
+  wffLiveStop();
+  return {call,field:l.field,down:l.down,possession:l.possession};
+ });
+ expect(mood.call).toMatch(/out of bounds at the .* 10\./);
+ expect(mood).toMatchObject({field:10,down:1,possession:1});
+});

@@ -33,9 +33,10 @@ function wffSpecialTeamsKick(l,type,kickingSide,receivingSide){
  const touchback=puntResult?.touchback??(landing>=100);
  const returnYards=puntResult?.returnYards??(touchback?0:Math.round(5+l.r()*25));
  const receiveSpot=puntResult?.receiveSpot??(touchback?(safetyKick?30:35):Math.max(1,Math.min(99,100-landing+returnYards)));
- const kicking=kickingSide===0?l.us:l.opp,receiving=receivingSide===0?l.us:l.opp;
- l.specialTeams={type,phase:"flight",kickingSide,receivingSide,origin,landing:Math.min(110,landing),distance,returnYards,receiveSpot,touchback,fairCatch:!!puntResult?.fairCatch};
- wffLiveEvent(kicking.city+(punt?" punts":safetyKick?" free-kicks after the safety":" kicks off")+" — ball traveling "+distance+" yards.",true);
+ const kicking=kickingSide===0?l.us:l.opp;
+ l.specialTeams={type,phase:"flight",kickingSide,receivingSide,origin,landing:Math.min(110,landing),distance,returnYards,receiveSpot,touchback,fairCatch:!!puntResult?.fairCatch,outcome:puntResult?.outcome,bounced:!!puntResult?.bounced};
+  const kick=punt?(puntResult.sideline?" angles a punt toward the sideline":" punts"):safetyKick?" free-kicks after the safety":" kicks off";
+ wffLiveEvent(kicking.city+kick+" — ball traveling "+(puntResult?.airDistance??distance)+" yards.",true);
  wffClockStop(l.clock);
 }
 function wffLiveSafety(l,offenseSide,reason){
@@ -105,17 +106,27 @@ function wffSpecialTeamsAdvance(l){
   wffLiveRender();wffLiveSchedule();return true;
  }
  const k=l.specialTeams;if(!k)return false;
+ const receiving=k.receivingSide===0?l.us:l.opp;
  if(k.phase==="flight"){
-  k.phase=k.touchback?"touchback":"return";
-  wffLiveEvent(k.touchback?"Ball reaches the end zone — touchback.":k.fairCatch?"Punt is fair-caught.":(k.receivingSide===0?l.us.city:l.opp.city)+" fields the "+(k.type==="punt"?"punt":"kickoff")+" and starts the return.",true);
+  k.phase=k.touchback?"touchback":k.outcome||"return";
+  const spot=receiving.city+" "+(k.outcome==="return"?100-k.landing:k.receiveSpot);
+  const result={
+   touchback:k.bounced?"The returner lets it bounce into the end zone. Touchback.":"Ball reaches the end zone. Touchback.",
+   out_of_bounds:"Punt goes out of bounds at the "+spot+".",
+   downed:(k.bounced?"The returner lets it bounce. ":"")+"Punt downed at the "+spot+".",
+   fair_catch:"Punt fair-caught at the "+spot+"."
+  }[k.phase];
+  wffLiveEvent(result||receiving.city+" fields the "+(k.type==="punt"?"punt":"kickoff")+" and starts the return.",true);
  }else{
   if(l.overtime&&l.overtime.current!==k.receivingSide){l.overtime.completed[l.overtime.current]=true;l.overtime.current=k.receivingSide}
+  if(k.bounced)wffClockSnap(l.clock,"kick",{duration:2});
   if(!k.touchback&&!k.fairCatch&&k.returnYards>0){
    wffClockSnap(l.clock,"kick",{duration:Math.min(14,4+Math.ceil(k.returnYards/6))});
   }
   l.possession=k.receivingSide;l.field=k.receiveSpot;l.down=1;l.toGo=Math.min(10,100-l.field);
   wffClockStop(l.clock);
-  wffLiveEvent((k.receivingSide===0?l.us.city:l.opp.city)+" takes over at its own "+l.field+" after "+(k.touchback?"a touchback":(k.fairCatch?"a fair catch":k.returnYards+"-yard return"))+".",true);
+  const ending={touchback:"a touchback",out_of_bounds:"the punt went out of bounds",downed:"the punt was downed",fair_catch:"a fair catch"}[k.phase]||"a "+k.returnYards+"-yard return";
+  wffLiveEvent(receiving.city+" takes over at its own "+l.field+" after "+ending+".",true);
   l.specialTeams=null;l.snapLineup=null;l.playResult=null;l.moments=[];l.calledPlay=null;l.formation=null;l.broadcastBefore=null;
   if(l.overtime&&wffOvertimeCheck(l))return true;
   if(wffLiveEndPeriod()){wffLiveRender();return true}
