@@ -80,11 +80,18 @@ test('stationary team markers, a single result line and the active QB on a sack'
  await expect(dots).toHaveCount(22);
  const positions=()=>dots.evaluateAll(list=>list.map(el=>{
   const circle=el.querySelector('circle');
-  return [circle.getAttribute('cx'),circle.getAttribute('cy'),circle.getAttribute('fill'),getComputedStyle(el).animationName];
+  const {width,height}=circle.getBoundingClientRect();
+  const {stroke,strokeWidth}=getComputedStyle(circle);
+  return [circle.getAttribute('cx'),circle.getAttribute('cy'),circle.getAttribute('fill'),getComputedStyle(el).animationName,width,height,stroke,strokeWidth];
  }));
  const before=await positions();
  expect([...new Set(before.map(row=>row[2]))].sort()).toEqual(['#c51f36','#ffffff']);
  expect(before.every(row=>row[3]==='none')).toBe(true);
+ for(const row of before){
+  expect(row[4]).toBeCloseTo(before[0][4],3);
+  expect(row[5]).toBeCloseTo(before[0][5],3);
+  expect(row.slice(6)).toEqual(before[0].slice(6));
+ }
  await page.clock.runFor(1100);
  expect(await positions()).toEqual(before);
  await expect(page.locator('.wff-big-moment')).toHaveAttribute('aria-label','Sack!');
