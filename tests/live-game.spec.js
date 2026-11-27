@@ -187,3 +187,51 @@ test('a score as the first quarter ends leads to a kickoff in the second quarter
  });
  expect(phase).toEqual([2,900,'kickoff']);
 });
+
+test('late play calls favor clock control, conversions, and situational defense',async({page})=>{
+ await page.goto('/');
+ const calls=await page.evaluate(()=>{
+  const schemes=[{offense:'Balanced Multiple',front:'4-3'},{offense:'Balanced Multiple',front:'4-3'}];
+  const plans=schemes.map(()=>({offense:'balanced',defense:'balanced'}));
+  const state={};
+  function sample(quarter,remaining,lead,down,toGo,timeouts=3){
+   const l={clock:{quarter,remaining,timeouts:[3,timeouts]},score:[20,20-lead],us:{id:23},opp:{id:21},down,toGo,field:50,state,schemes,plans,r:wffRandom(23,'play-call-test')};
+   const totals={runs:0,inside:0,runFit:0,deepCoverage:0,blitz:0,goalLine:0};
+   for(let i=0;i<500;i++){
+    const {play,defense}=wffCallPlay(l,0);
+    if(play.kind==='run'){
+     totals.runs++;
+     if(/Inside Zone|Duo|Power O|Iso/.test(play.concept))totals.inside++;
+    }
+    if(defense.concept==='Run Fit')totals.runFit++;
+    if(/Cover [346]|Tampa 2|Quarters/.test(defense.concept))totals.deepCoverage++;
+    if(wffDefensivePressure(defense))totals.blitz++;
+    if(/Goal Line/.test(defense.formation))totals.goalLine++;
+   }
+   return totals;
+  }
+  return {normal:sample(3,210,3,1,10),close:sample(4,210,3,1,10),third:sample(4,160,3,3,8),
+   twoScore:sample(4,160,13,3,8),behind:sample(4,90,-10,1,10),ordinaryPass:sample(3,90,-10,1,10)};
+ });
+ expect(calls.close.runs).toBeGreaterThan(calls.normal.runs+120);
+ expect(calls.close.inside/calls.close.runs).toBeGreaterThan(calls.normal.inside/calls.normal.runs);
+ expect(calls.close.runFit).toBeGreaterThan(calls.normal.runFit);
+ expect(calls.third.runs).toBeLessThan(150);
+ expect(calls.third.deepCoverage).toBeGreaterThan(calls.close.deepCoverage);
+ expect(calls.twoScore.runs).toBeGreaterThan(calls.third.runs);
+ expect(calls.behind.deepCoverage).toBeGreaterThan(calls.ordinaryPass.deepCoverage);
+ expect(calls.behind.blitz).toBeLessThan(calls.ordinaryPass.blitz);
+ for(const totals of Object.values(calls))expect(totals.goalLine).toBe(0);
+});
+
+test('the called defensive concept determines blitz attribution',async({page})=>{
+ await page.goto('/');
+ const result=await page.evaluate(()=>{
+  const l={calledPlay:{defense:{concept:'Cover 3 Sky'}},stats:[{},{}],r:()=>{throw Error('Unexpected second blitz roll')}};
+  const regular=wffBlitzCall(l,0);
+  l.calledPlay.defense.concept='Mike Blitz';
+  const pressure=wffBlitzCall(l,0);
+  return [regular,pressure,l.stats[1].blitzCalls,l.stats[0].blitzFaced];
+ });
+ expect(result).toEqual([false,true,1,1]);
+});

@@ -108,9 +108,9 @@ function wffWeightedChoice(pool,r,weight){
 }
 function wffPlanModifiers(l,side,pass,play){
  const {attack,defend}=wffMatchPlans(l,side);
- const run=!pass,runDef=defend==="run",blitz=/Blitz|Pressure/i.test(l.calledPlay?.defense?.concept||""),cover=defend==="coverage",man=defend==="man";
+ const run=!pass,runDef=defend==="run",blitz=wffDefensivePressure(l.calledPlay?.defense),cover=defend==="coverage",man=defend==="man";
  let completion=0,runYards=0,passYards=0,pressure=0,turnover=0;
- if(run){if(attack==="ground")runYards+=.65;if(runDef)runYards-=1.25;if(cover)runYards+=.55;if(blitz)runYards-=.35;if(attack==="tempo")runYards+=.1}
+ if(run){if(l.calledPlay?.defense?.concept==="Run Fit")runYards-=.45;if(attack==="ground")runYards+=.65;if(runDef)runYards-=1.25;if(cover)runYards+=.55;if(blitz)runYards-=.35;if(attack==="tempo")runYards+=.1}
  else{
   if(attack==="quick"){completion+=.065;passYards-=2.2;pressure-=.018}
   if(attack==="deep"){completion-=.075;passYards+=5;pressure+=.028;turnover+=.009}

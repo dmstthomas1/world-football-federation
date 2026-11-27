@@ -67,11 +67,41 @@ function wffPlayConfig(state){
  if(!c.disabledDefense)c.disabledDefense={};
  return c;
 }
+// Four-minute offense balances clock control with earning another set of downs.
+function wffClosingDrive(l,side){
+ const lead=l.score[side]-l.score[1-side];
+ return l.clock.quarter===4&&lead>0&&l.clock.remaining<=(lead>=9?480:300);
+}
+function wffDefensivePressure(call){return /Blitz|Pressure/.test(call?.concept||"")}
+function wffClosingRunRate(normal,l,side){
+ const lead=l.score[side]-l.score[1-side],distance=l.toGo,down=l.down;
+ const stops=l.clock.timeouts[1-side],short=distance<=2;
+ let target=down===1?.88:down===2?(short?.9:distance<=6?.81:.69):short?.8:distance<=5?.39:.19;
+ if(lead>=9)target+=down<=2?.06:.18;
+ if(down>=3&&!short&&stops===0&&l.clock.remaining<=125)target+=.16;
+ if(down>=3&&!short&&lead<=3&&stops>=2)target-=.06;
+ if(down>=3&&l.field<=10)target+=.10;
+ return Math.max(.05,Math.min(.96,.22*normal+.78*target));
+}
+function wffClosingPlayFit(play,down,distance){
+ if(play.kind==="run"){
+  const inside=/Inside Zone|Duo|Power O|Iso|HB Dive|FB Dive|QB Sneak/.test(play.concept);
+  const outside=/Sweep|Toss|Outside Zone|Stretch/.test(play.concept);
+  return (inside?3:outside?.45:1)*(/^(Singleback|I-Form|Strong I|Weak I|Goal Line)$/.test(play.formation)?1.5:1);
+ }
+ const shortMiddle=/Slants|Stick|Spacing|Mesh|Shallow Cross|Curl Flat|TE Flat|TE Leak|Texas|Screens/.test(play.concept);
+ const intermediate=/Drive|Levels|Dagger|Y Cross|Post-Dig|Deep Over/.test(play.concept);
+ if(down>=3&&distance>=7)return intermediate?3:shortMiddle?.8:.65;
+ return shortMiddle?3:intermediate?1:.55;
+}
 function wffCallPlay(l,side){
  const style=l.schemes[side].offense,front=l.schemes[1-side].front;
  const cfg=wffPlayConfig(l.state),off=wffPlayLibrary(style).filter(p=>side!==0||!cfg.disabledOffense[p.id]);
- const distance=l.toGo,down=l.down,late=l.clock.quarter>=4,focus=l.plans[side].offense,defFocus=l.plans[1-side].defense;
+ const distance=l.toGo,down=l.down,focus=l.plans[side].offense,defFocus=l.plans[1-side].defense;
  const scoreDiff=l.score[side]-l.score[1-side],seconds=l.clock.remaining;
+ const closing=wffClosingDrive(l,side);
+ const defendingLead=wffClosingDrive(l,1-side);
+ const protectDeep=defendingLead&&distance>=6&&(scoreDiff<=-9||seconds<=150&&(scoreDiff<=-4||l.field<60));
  const goalToGo=l.field>=90&&distance>=100-l.field;
  const nearGoal=l.field>=94||goalToGo;
  const short=distance<=2,longYardage=distance>=8,veryLong=distance>=14;
@@ -85,10 +115,10 @@ function wffCallPlay(l,side){
  else if(longYardage&&down>=2)runChance-=.08;
  if(nearGoal)runChance+=short?.15:.04;
  if(l.field<=5)runChance+=.08;
- if(l.clock.quarter===4&&scoreDiff>0&&seconds<=480)runChance+=down<=2?.18:short?.12:.04;
  if(l.clock.quarter===4&&scoreDiff<0&&seconds<300)runChance-=.23;
  if((l.clock.quarter===2||l.clock.quarter===4)&&seconds<90&&scoreDiff<=0)runChance-=.13;
  runChance=Math.max(down>=3&&veryLong?.025:.10,Math.min(.77,runChance));
+ if(closing)runChance=wffClosingRunRate(runChance,l,side);
  const wantRun=l.r()<runChance;
  const situational=off.filter(p=>nearGoal?p.formation==="Goal Line":p.formation!=="Goal Line");
  const choices=situational.length?situational:off;
@@ -104,7 +134,7 @@ function wffCallPlay(l,side){
    if(/Screens|Draw/.test(p.concept))weight*=down>=3&&distance>=12?.65:1;
    if(/Power O|Duo|Iso|Inside Zone/.test(p.concept))weight*=distance<=3?1.6:1;
   }
-  return weight;
+  return weight*(closing?wffClosingPlayFit(p,down,distance):1);
  })||wffPlayLibrary(style)[0];
  const defenses=wffDefenseLibrary(front).filter(p=>side!==1||!cfg.disabledDefense[p.id]);
  // Defensive personnel selection: match offensive grouping, down/distance and field position.
@@ -134,20 +164,30 @@ function wffCallPlay(l,side){
   if(down===4&&distance>=7&&dime(d))w*=2;
   if(distance<=2&&base(d))w*=1.5;
   if(distance<=2&&dime(d))w*=.3;
+  if(closing&&!passingDown){
+   if(base(d)&&(heavy||twoTE||short))w*=1.65;
+   if(dime(d))w*=.55;
+   if(d.concept==="Run Fit")w*=short?5:3.5;
+  }
+  if(passingDown||protectDeep){
+   if(dime(d)&&!heavy)w*=1.55;
+   if(/Cover [346]|Tampa 2|Quarters/.test(d.concept))w*=protectDeep?2.7:1.75;
+   if(d.concept==="Run Fit")w*=.25;
+  }
   return Math.max(.01,w)*Math.max(.1,wffPlanDefenseFit(d,defFocus));
  };
  // A pressure identity changes the mix, but never makes every snap a blitz.
- const pressureCalls=available.filter(d=>/Blitz|Pressure/.test(d.concept));
- const ordinaryCalls=available.filter(d=>!/Blitz|Pressure/.test(d.concept));
- const scoreGap=l.score[side]-l.score[1-side];
- let pressureChance=defFocus==="blitz"?.31:defFocus==="disguise"?.20:defFocus==="man"?.17:defFocus==="run"?.13:.12;
- if(down===3&&distance>=5)pressureChance+=.09;
- if(down===4&&distance>=5)pressureChance+=.07;
- if(distance<=2)pressureChance+=.04;
- if(distance>=14)pressureChance-=.05;
- if(l.field>=90)pressureChance-=.06;
- if(l.clock.quarter===4&&scoreGap>=9)pressureChance-=.05;
- pressureChance=Math.max(.045,Math.min(.43,pressureChance));
+ const pressureCalls=available.filter(wffDefensivePressure);
+ const ordinaryCalls=available.filter(d=>!wffDefensivePressure(d));
+ const teamId=(side===0?l.opp:l.us).id;
+ const identity=((teamId*37+17)%17-8)*.0075;
+ const pressureBias=({blitz:.105,coverage:-.065,contain:-.055,disguise:.025,man:.015,run:.005})[defFocus]||0;
+ let pressureChance=.24+identity+pressureBias;
+ if(passingDown)pressureChance+=.05;
+ if(closing&&!passingDown)pressureChance-=.035;
+ if(protectDeep)pressureChance-=.08;
+ if(l.field>=90)pressureChance-=.04;
+ pressureChance=Math.max(.06,Math.min(.43,pressureChance));
  const callBlitz=pressureCalls.length&&l.r()<pressureChance;
  const defensivePool=callBlitz?pressureCalls:ordinaryCalls.length?ordinaryCalls:available;
  const defense=wffWeightedChoice(defensivePool,l.r,weight);

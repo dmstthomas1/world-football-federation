@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0a1422">
-<title>World Football Federation | Alpha 0.6.83</title>
+<title>World Football Federation | Alpha 0.6.84</title>
 <style>
 :root{color-scheme:dark;--bg:#09111d;--panel:#132236;--panel2:#1b2e45;--line:#30445b;--text:#f0f5fb;--muted:#a7b7c8;--accent:#57d7a3;--gold:#f2c36b}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top right,#173651 0,#09111d 52%);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}button,select{font:inherit}button{cursor:pointer}.shell{max-width:1160px;margin:auto;padding:22px}.top{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:20px}.brand{font-size:25px;font-weight:900;letter-spacing:.06em}.brand span{color:var(--accent)}.sub,.muted{color:var(--muted)}.tag{font-size:12px;border:1px solid var(--line);border-radius:20px;padding:5px 11px;color:var(--gold)}h1{font-size:clamp(28px,5vw,46px);line-height:1.12;margin:30px 0 10px}h2{font-size:21px;margin:0 0 14px}h3{margin:0 0 8px}.intro{max-width:730px;color:var(--muted)}.panel{background:rgba(19,34,54,.96);border:1px solid var(--line);border-radius:16px;padding:20px;margin-top:18px}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:18px 0}.toolbar input,.toolbar select,select{background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:11px;min-width:0}.toolbar input{flex:1;min-width:180px}.teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:12px}.team{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px;text-align:left;color:var(--text);transition:.15s}.team:hover,.team:focus-visible{border-color:var(--accent);transform:translateY(-2px)}.wff-selection-heading{display:flex;align-items:center;gap:11px}.wff-selection-heading .wff-logo{flex:none}.wff-selection-ratings{display:flex;justify-content:space-between;gap:5px;margin-top:13px;padding:9px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:12px}.wff-selection-ratings b{font-size:17px;color:var(--text)}.wff-selection-schemes{margin-top:10px;font-size:12px;line-height:1.7;color:var(--muted)}.team .city{color:var(--muted);font-size:12px}.team strong{display:block;font-size:19px}.team .region{font-size:12px;color:var(--gold);margin-top:12px}.btn{background:var(--accent);border:0;border-radius:10px;padding:11px 17px;color:#072116;font-weight:800}.btn.secondary{background:var(--panel2);border:1px solid var(--line);color:var(--text)}.btn:disabled{opacity:.45;cursor:not-allowed}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}.stat{background:var(--panel2);padding:15px;border-radius:12px}.stat b{font-size:28px;display:block}.stat small{color:var(--muted)}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}.tabs button{border:1px solid var(--line);background:var(--panel);color:var(--text);padding:10px 14px;border-radius:10px}.tabs button.active{background:var(--accent);color:#082117;border-color:var(--accent);font-weight:800}.line{border-top:1px solid var(--line);padding:10px 0;display:flex;justify-content:space-between;gap:15px}.line small{color:var(--muted)}.player{border-top:1px solid var(--line);padding:10px 0}.player summary{display:flex;justify-content:space-between;gap:12px;cursor:pointer}.player summary small{display:block;color:var(--muted)}.player-info{padding:12px;background:var(--panel2);border-radius:10px;margin-top:10px}.player-info h3{margin-top:15px}.dna-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:7px}.dna-grid>div{display:flex;justify-content:space-between;gap:8px;padding:5px 8px;background:var(--panel);border-radius:5px;font-size:12px}.dna-grid b{color:var(--accent)}.score{font-size:clamp(24px,5vw,40px);font-weight:900;text-align:center}.log{max-height:340px;overflow:auto;background:#0b1929;border-radius:10px;padding:12px}.log p{border-bottom:1px solid #24364a;padding-bottom:8px;margin:8px 0}.notice{color:var(--gold);font-size:13px}.footer{margin-top:35px;color:var(--muted);font-size:12px}.hidden{display:none!important}@media(max-width:600px){.shell{padding:14px}.panel{padding:15px}.brand{font-size:21px}}
@@ -27,7 +27,7 @@
 </style>
 </head>
 <body><div class="shell">
-<header class="top"><div><div class="brand">🌐 <span>WFF</span> WORLD FOOTBALL FEDERATION</div><div class="sub">A global American football franchise simulator</div></div><span class="tag">ALPHA 0.6.83 • PROTOTYPE</span></header>
+<header class="top"><div><div class="brand">🌐 <span>WFF</span> WORLD FOOTBALL FEDERATION</div><div class="sub">A global American football franchise simulator</div></div><span class="tag">ALPHA 0.6.84 • PROTOTYPE</span></header>
 <main id="app"></main><footer class="footer">WFF is an independent fictional football project. All teams and players are fictional. Alpha simulation and ratings are placeholders for testing.</footer>
 </div>
 <script src="franchise-storage.js?v=alpha0646-db1"></script>
@@ -43,12 +43,12 @@
 <script src="kicking.js?v=alpha0677-fgrange1"></script>
 <script src="penalties.js?v=alpha0676-penalties1"></script>
 <script src="turnovers.js?v=alpha0681-clock-broadcast1"></script>
-<script src="playbook-library.js?v=alpha0681-clock-broadcast1"></script>
-<script src="game-plans.js?v=alpha0661-pregamefix1"></script>
+<script src="playbook-library.js?v=alpha0684-situational-calls1"></script>
+<script src="game-plans.js?v=alpha0684-situational-calls1"></script>
 <script src="game-formations.js?v=alpha057-formations1"></script>
 <script src="field-position.js?v=alpha0681-clock-broadcast1"></script>
 <script src="live-field.js?v=alpha0683-marker-size1"></script>
-<script src="live-game.js?v=alpha0681-clock-broadcast1"></script>
+<script src="live-game.js?v=alpha0684-situational-calls1"></script>
 <script src="staff-market.js?v=alpha043-staff1"></script>
 <script src="league-player-stats.js?v=alpha0637-jerseys1"></script>
 <script src="league-hub.js?v=alpha0660-portraitnumbers1"></script>

@@ -221,22 +221,10 @@ function wffLiveContinue(){
  l.breakType=null;l.paused=false;wffLiveRender();wffLiveSchedule();
 }
 
-// Live sacks are generated from actual offensive dropbacks, not postgame estimates.
-// NFL-style defensive pressure: league baseline ~26% of dropbacks.
-// Weekly blitz focus and a stable coordinator tendency adjust the baseline.
-function wffBlitzRate(l,defendingSide,pass){
- const focus=l.plans?.[defendingSide]?.defense||"balanced";
- const id=defendingSide===0?l.us.id:l.opp.id;
- const identity=((Number(id)*37+17)%17-8)*.0075;
- const plan=focus==="blitz"?.105:focus==="coverage"?-.065:focus==="contain"?-.055:focus==="disguise"?.025:focus==="man"?.015:focus==="run"?.005:0;
- const down=l.down>=3?.035:l.down===2?.01:0;
- const long=l.toGo>=8?.01:0;
- const runAdjustment=pass?0:-.045;
- return Math.max(.12,Math.min(.44,.26+identity+plan+down+long+runAdjustment));
-}
-function wffBlitzCall(l,offenseSide,pass){
+// The called defensive concept drives pressure and the box score.
+function wffBlitzCall(l,offenseSide){
  const defense=1-offenseSide;
- const called=l.r()<wffBlitzRate(l,defense,pass);
+ const called=wffDefensivePressure(l.calledPlay?.defense);
  if(called){
   l.stats[defense].blitzCalls=(l.stats[defense].blitzCalls||0)+1;
   l.stats[offenseSide].blitzFaced=(l.stats[offenseSide].blitzFaced||0)+1;
@@ -256,8 +244,6 @@ function wffPassRushOutcome(l,side,calledBlitz){
  const protection=linemen.length?linemen.reduce((a,b)=>a+b,0)/linemen.length:72;
  const rush=rushers.length?rushers.slice(0,4).reduce((a,b)=>a+b.skill,0)/Math.min(4,rushers.length):72;
  const edge=rushers.find(p=>group(p.player,"EDGE"));
- const focus=l.plans?.[1-side]?.defense;
- const concept=l.calledPlay?.defense?.concept||"";
  const blitz=!!calledBlitz;
  const longDown=l.toGo>=8&&l.down>=3;
  // Recognition and protection are independent of pass rush talent.
@@ -379,7 +365,8 @@ function wffLiveStep(){
  const talent=side===0?l.state.roster.reduce((n,p)=>n+p.overall,0)/Math.max(1,l.state.roster.length):rating(l.opp.id,12);
  const opposingTalent=side===0?rating(l.opp.id,12):l.state.roster.reduce((n,p)=>n+p.overall,0)/Math.max(1,l.state.roster.length);
  const talentDelta=Math.max(-.06,Math.min(.06,(talent-opposingTalent)*.004));
- const blitzCalled=wffBlitzCall(l,side,pass);
+ const blitzCalled=wffBlitzCall(l,side);
+ const closing=wffClosingDrive(l,side);
  const rushOutcome=pass?wffPassRushOutcome(l,side,blitzCalled):null;
  const completionChance=Math.max(.28,Math.min(.84,.64+mods.completion+talentDelta+(rushOutcome?.pickup ? .035 : 0)+(rushOutcome?.quickThrow ? .025 : 0)-(rushOutcome?.blitz&&!rushOutcome.pickup&&!rushOutcome.quickThrow ? .045 : 0)));
  // A rare, pressure-driven throwaway: never count as a completion or interception.
@@ -409,7 +396,7 @@ function wffLiveStep(){
  }
  if(rushOutcome?.blitz){const st=l.stats[side];if(rushOutcome.pickup){st.blitzPickedUp=(st.blitzPickedUp||0)+1;wffLiveEvent("Blitz recognized and picked up — quarterback has time to throw.")}else if(rushOutcome.quickThrow){st.quickThrows=(st.quickThrows||0)+1;wffLiveEvent("Quarterback reads the blitz and releases a quick pass.")}}
  const target=pass&&!throwAway?wffLivePassTarget(l,side):null;
- const turnoverPass=pass&&!throwAway?wffTurnoverPass(l,side,{pressure:defenseFocus==="blitz",desperate:urgency}):null;
+ const turnoverPass=pass&&!throwAway?wffTurnoverPass(l,side,{pressure:blitzCalled&&!rushOutcome?.pickup,desperate:urgency}):null;
  if(turnoverPass?.type==="interception"){
   wffClockSnap(c,"turnover",{duration:6});const st=l.stats[side];st.plays++;st.pass++;l.playCount++;
   const message=wffTurnoverRecord(l,side,turnoverPass);
@@ -437,7 +424,7 @@ function wffLiveStep(){
  }
  if(selected)wffLiveEvent((side===0?l.us.city:l.opp.city)+" calls "+selected.formation+" "+selected.variant+" — "+selected.concept+" against "+l.calledPlay.defenseFormation+" "+l.calledPlay.defense.concept+".");
  const kind=pass?(complete?"pass_complete":"pass_incomplete"):"run";
- const outsideChance=urgency?(pass?.22:.13):(pass?.12:.07);
+ const outsideChance=closing?(pass?.03:.015):urgency?(pass?.22:.13):(pass?.12:.07);
  const outOfBounds=(!pass||complete)&&gain>0&&l.field+gain<100&&l.r()<outsideChance;
  const duration=kind==="pass_incomplete"?3+Math.floor(l.r()*5):Math.min(12,4+Math.floor(Math.max(0,gain)/5)+Math.floor(l.r()*3));
  wffClockSnap(c,kind,{duration,outOfBounds});
